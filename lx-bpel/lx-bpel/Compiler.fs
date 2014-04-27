@@ -30,77 +30,6 @@ type DiscreteDistribution<'T> (probabilities: ('T*float) list) =
 let always (x:'U) = new DiscreteDistribution<_>([x,1.0])
 let bind (f:'U->DiscreteDistribution<'T>) (x:DiscreteDistribution<'U>) = x.MMap f
 
-
-
-(*let rec expEval (env:Map<string,bool option>) = function
-    | True -> always (Some true),Set.empty
-    | False -> always (Some false),Set.empty
-    | Bottom -> always None,Set.empty
-    | Or (a,b) ->
-        let a = expEval env a
-        let b = expEval env b
-        bind (fun b ->
-            bind (fun a ->
-                match a,b with
-                | Some v1,Some v2 -> always (Some (v1 || v2))
-                | _ ->  always None
-                ) a
-            ) b
-    | And (a,b) ->
-        let a = expEval env a
-        let b = expEval env b
-        bind (fun b ->
-            bind (fun a ->
-                match a,b with
-                | Some v1,Some v2 -> always (Some (v1 && v2))
-                | _ ->  always None
-                ) a
-            ) b
-    | Pick (a,b) ->
-        let a = expEval env a
-        let b = expEval env b
-        bind (fun b ->
-            bind (fun a ->
-                match a,b with
-                | None,None -> always None
-                | Some true,_ | _,Some true -> always (Some true)
-                | _ ->  always (Some false)
-                ) a
-            ) b
-    | Not e ->
-        let e = expEval env e
-        bind ((Option.map not)>>always) e
-    | Var name -> always env.[name]
-    | Dep activity -> wait name
-    *)
-//let rec QoS bpelExpr =
-//    match bpelExpr with
-//    | Flow (activityList) ->
-//        exprEval (
-//        // sort activities
-//    | If (gExp,bExp,eExp) ->
-//    | VarSet varName ->
-//
-(*
-type BoolExpr =
-    | True
-    | False
-    | Or of BoolExpr * BoolExpr
-    | And of BoolExpr * BoolExpr
-    | Not of BoolExpr
-    | Dep of string
-and Activity =
-    | IfThenElse of BoolExpr * Activity * Activity
-    | VarSet of string * BoolExpr
-    | Sequence of Activity * Activity
-    | Pick of Activity * Activity
-    | Flow of (BoolExpr * Activity * string) list
-*)
-
-let sequentialBehavior (t1:float,t2) = t1 + t2
-let parallelBehavior (t1:float,t2) = max t1 t2
-let pickBehavior (t1:float,t2) = min t1 t2
-
 type QoS(time:float) =
     member x.Equals(y:QoS) = // todo: check how to do it properly
         time = y.Time
@@ -136,18 +65,20 @@ type QoSComposer () =
         //return represent values with maximum QoS, either success or failure.
         // Used for composition 
         Max b
-    member x.Both (q1:QoSStructural<bool>,q2:QoSStructural<bool>,f:bool->QoSStructural<'T>) =
+    member x.Both (q1:QoSStructural<'T>,q2:QoSStructural<'U>,f:'T*'U->QoSStructural<'T>) =
         //both represents parallel (AND) dependence.
         match q1,q2 with
         | Min,_|_,Min -> Min
-        | Max v1,e | e,Max v1 -> x.After (e,(fun v2 -> f (v1&&v2)))
-        | Some(v1,t1),Some(v2,t2) -> x.After(Some(v1&&v2,QoS.parallelBehavior(t1,t2)),f)
+        | Max v1,e -> x.After (e,(fun v2 -> f (v1,v2)))
+        | e,Max v2 -> x.After (e,(fun v1 -> f (v1,v2)))
+        | Some(v1,t1),Some(v2,t2) -> x.After(Some((v1,v2),QoS.parallelBehavior(t1,t2)),f)
     member x.Any (q1:QoSStructural<bool>,q2:QoSStructural<bool>,f:bool->QoSStructural<'T>) =
         //any represents pick (parallel OR) dependance.
         match q1,q2 with
         | Max true,_ | _,Max true -> f true //if any of them is the "true" constant, the other one isn't even evaluated
         | Max false,e | e,Max false | Min,e| e,Min  -> x.After(e,f) // if any of them is false or bottom, it is just the behavior of the other branch
-        | Some(v1,t1),Some(v2,t2) -> x.After(Some(v1 || v2,QoS.pickBehavior(t1,t2)),f ) 
+        | Some(v1,t1),Some(v2,t2) -> x.After(Some(v1 || v2,QoS.pickBehavior(t1,t2)),f )
+
 let qos = new QoSComposer()
 
 type BoolExpr =
@@ -161,14 +92,15 @@ type BoolExpr =
     | Var of string
 and Activity =
     | Nothing
+    | Throw
+    | Scope of Activity * Activity //first is the inner scope, second is the fault handler
+    | Sequence of Activity * Activity
+    | Invoke of DiscreteDistribution<QoSStructural<bool>> //we assume invokes are uncorrelated
     | IfThenElse of BoolExpr * Activity * Activity
     | While of BoolExpr * Activity
     | VarSet of string * BoolExpr
-    | Sequence of Activity * Activity
     | Flow of (BoolExpr * Activity * string) list
-    | Invoke of DiscreteDistribution<QoSStructural<bool>> //we assume invokes are uncorrelated
 
-//evaluates expression. We require an environment where all dependent activities have been evaluated.
 type EnvType ={ variables:Map<string,QoSStructural<bool>>; incomingLinks:Map<string,QoSStructural<bool>>}
 let expEval exp ( env:EnvType ) = 
     let rec ee = function
@@ -182,7 +114,7 @@ let expEval exp ( env:EnvType ) =
     | And (a,b) ->
         let a = ee a
         let b = ee b
-        qos.Both(a,b,qos.Return)
+        qos.Both(a,b,(fun (a,b) -> qos.Return (a && b)))
     | Not e ->
         let e = ee e
         qos.After (e,fun e -> qos.Return (not e))
@@ -191,6 +123,68 @@ let expEval exp ( env:EnvType ) =
         let e2 = ee e2
         qos.Any (e1,e2,qos.Return)
     ee exp
+
+
+//our semantic is a success function plus a status transformation
+let rec getQoS = function
+    | Nothing -> fun (env:EnvType) -> qos.Return (true,env)  // Nothing always succeeds, not changing status
+    | Throw -> fun env -> qos.Return (false,env) // throw always fails, not changing status
+    | Scope (inner,faultHandler) ->
+        let inner = getQoS inner
+        let faultHandler = getQoS faultHandler
+        fun env ->
+        qos.After(inner env,
+            fun (success,status) ->
+                if success then
+                    qos.Return(true,status)
+                else
+                    qos.After(faultHandler status, // if inner activity failed we run the fault handler
+                        fun (success,status) ->
+                            qos.Return(success,status)// the composed status transform
+                        )
+            ) 
+    | Sequence  (a1,a2) ->
+        let a1 = getQoS a1
+        let a2 = getQoS a2
+        fun env ->
+        qos.After(a1 env,
+            fun (success,status) ->
+                if success then
+                    qos.After(a2 status, // if a1 succeeded we run the a2
+                        fun (success,status) ->
+                            qos.Return(success,status)
+                        )
+                else
+                    qos.Return(false,status) 
+            )
+    | Flow l ->
+        //we assume:
+        // - activities in the list are ordered in respect to links
+        // - no race condition, i.e. no variables name collision, variables are always defined in every path which could lead to an activity
+        // - each activity which is supposed to set a link status will set a variable with the same name
+        // //- activities which are link targets will instead be wrapped in a if() over the join condition
+        let l1 = l |> List.map (fun (join,activity,linkname) -> 
+            linkname,(
+                let activity = getQoS activity
+                let g = expEval join
+                fun env ->
+                qos.After (g env,fun g ->
+                if g then
+                    qos.After(activity env,fun (success,env) -> 
+                        if success then
+                            qos.Return (true,{ EnvType.variables = env.variables; incomingLinks=env.incomingLinks.Add(} )
+                else
+                    qos.Return (true,env) // "shortcut rule" : if the join condition is false we consider the activity successful
+            )))
+        let rec rev = function
+        | [] -> fun (env:EnvType) -> qos.Return(true,env)
+        | (n,h)::t -> fun env ->
+            match h env with
+            | Min -> Min
+            | Max (false,env) -> Max (false,env)
+            
+        rev l1
+//evaluates expression. We require an environment where all dependent activities have been evaluated.
 
 //activity are imperative, i.e. we add an environment to the input and the output of semantic function
 //The semantic domain for activities is the distribution domain conditioned on the environment status
