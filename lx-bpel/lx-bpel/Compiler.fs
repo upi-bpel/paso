@@ -30,25 +30,27 @@ type DiscreteDistribution<'T> (probabilities: ('T*float) list) =
 let always (x:'U) = new DiscreteDistribution<_>([x,1.0])
 let bind (f:'U->DiscreteDistribution<'T>) (x:DiscreteDistribution<'U>) = x.MMap f
 
-type QoS(time:float) =
-    member x.Equals(y:QoS) = // todo: check how to do it properly
-        time = y.Time
+[<Struct>]
+type QoS(time:float,price:float) =
+    static member Top = QoS(0.0,0.0)
     member private x.Time = time
+    member private x.Price = price
     static member sequentialBehavior ( q1:QoS,q2:QoS) =
-        new QoS(q1.Time + q2.Time)
+        QoS(q1.Time + q2.Time,q1.Price+q2.Price)
     static member parallelBehavior ( q1:QoS,q2:QoS) =
-        new QoS(max q1.Time q2.Time)
+        QoS(max q1.Time q2.Time,q1.Price+q2.Price)
     static member pickBehavior ( q1:QoS,q2:QoS) =
-        new QoS(min q1.Time q2.Time)
+        QoS(min q1.Time q2.Time,q1.Price+q2.Price)
     static member worseCaseBehavior ( q1:QoS,q2:QoS) = //not yet used
-        new QoS(max q1.Time q2.Time)
+        QoS(max q1.Time q2.Time,max q1.Price q2.Price)
 
 
 //carries both QoS and value information. Extends QoS type with bottom (Min) to represent nontermination and top value (Max), i.e. the QoS value for independent expressions
-type QoSStructural<'T> =
-    | Max of 'T
-    | Min
-    | Some of 'T*QoS
+type Result =
+    | Success
+    | Fault
+    | Stuck
+
 
 //defines composition function for QoSStructural. Need not to be a type, it's just for collecting them together
 type QoSComposer () =
@@ -92,74 +94,77 @@ type BoolExpr =
     | Not of BoolExpr
     | Pick of BoolExpr * BoolExpr
     | Dep of string
-    | Var of string
+    //| Var of string
 and Activity =
-    | Nothing
+    | Nothing of QoS
     | Throw
     | Scope of Activity * Activity //first is the inner scope, second is the fault handler
     | Sequence of Activity * Activity
-    | Invoke of DiscreteDistribution<QoSStructural<bool>> //we assume invokes are uncorrelated
+    | Invoke of Result*QoS 
     | IfThenElse of BoolExpr * Activity * Activity
-    | While of BoolExpr * Activity
-    | VarSet of string * BoolExpr
+    //| While of BoolExpr * Activity
+    //| VarSet of string * BoolExpr
     | Flow of (BoolExpr * Activity * string) list
 
-type EnvType ={ variables:Map<string,QoSStructural<bool>>; incomingLinks:Map<string,QoSStructural<bool>>}
+type EnvType = Map<string,Result*QoS> 
 let expEval exp ( env:EnvType ) = 
     let rec ee = function
-    | True -> qos.Return true
-    | False ->  qos.Return false
-    | Dep activity -> env.incomingLinks.[activity]
-    | Var activity -> env.variables.[activity]
+    | True -> Success,QoS.Top
+    | False ->  Fault,QoS.Top
+    | Dep activity -> env.[activity]
+    //| Var activity -> env.variables.[activity]
     | Or (a,b) ->
         //we perform De Morgan transforms to get an And instead
         ee (Not (And(Not(a),Not(b))))
     | And (a,b) ->
-        let a = ee a
-        let b = ee b
-        qos.Both(a,b,(fun (a,b) -> qos.Return (a && b)))
+        let a,qa = ee a
+        let b,qb = ee b
+        let r = match a,b with
+                | Success,Success -> Success
+                | Stuck,_|_,Stuck -> Stuck
+                | _ -> Fault 
+        r,QoS.parallelBehavior(qa,qb)
     | Not e ->
-        let e = ee e
-        qos.After (e,fun e -> qos.Return (not e))
-    | Pick (e1,e2) ->
-        let e1 = ee e1
-        let e2 = ee e2
-        qos.Any (e1,e2,qos.Return)
+        let e,qe = ee e
+        let r = match e with
+                | Success -> Fault
+                | Fault -> Success
+                | Stuck -> Stuck
+        r,qe
+    | Pick (a,b) ->
+        let a,qa = ee a
+        let b,qb = ee b
+        let r = match a,b with
+                | Fault,Fault -> Fault
+                | Success,_|_,Success -> Success
+                | _ -> Stuck 
+        r,QoS.pickBehavior(qa,qb)
     ee exp
 
 
 //our semantic is a success function plus a status transformation
 let rec getQoS = function
-    | Nothing -> fun (env:EnvType) -> (qos.Return true),env  // Nothing always succeeds, not changing status
-    | Throw -> fun env -> (qos.Return false),env // throw always fails, not changing status
+    | Nothing q -> fun (env:EnvType) -> (Success,q),env  // Nothing always succeeds, not changing status
+    | Throw -> fun env -> (Fault, QoS.Top),env // throw always fails, not changing status
     | Scope (inner,faultHandler) ->
         let inner = getQoS inner
         let faultHandler = getQoS faultHandler
         fun env ->
-        qos.After(inner env,
-            fun (success,env) ->
-                if success then
-                    (qos.Return true),env
-                else
-                    qos.After(faultHandler status,env, // if inner activity failed we run the fault handler
-                        fun (success,env) ->
-                            qos.Return(success),env
-                        )
-            ) 
+            match inner env with
+            | (Fault,quality),env ->
+                let (result,quality2),env = faultHandler env
+                (result,QoS.sequentialBehavior(quality,quality2)),env
+            | other -> other
+             
     | Sequence  (a1,a2) ->
         let a1 = getQoS a1
         let a2 = getQoS a2
         fun env ->
-        qos.After(a1 env,
-            fun (success,env) ->
-                if success then
-                    qos.After(a2 env, // if a1 succeeded we run the a2
-                        fun (success,env) ->
-                            (qos.Return success),env
-                        )
-                else
-                    (qos.Return false),env
-            )
+            match inner env with
+            | (Success,quality),env ->
+                let (result,quality2),env = a2 env
+                (result,QoS.sequentialBehavior(quality,quality2)),env
+            | other -> other
     | Flow l ->
         //we assume:
         // - activities in the list are ordered in respect to links
@@ -171,43 +176,15 @@ let rec getQoS = function
                 let activity = getQoS activity
                 let g = expEval join
                 fun env ->
-                qos.After (g env,fun g ->
+                qos.After ((g env,env),fun (g,env) ->
                 if g then
-                    qos.After(activity env,fun (success,env) -> 
-                        if success then
-                            qos.Return (true,{ EnvType.variables = env.variables; incomingLinks=env.incomingLinks.Add(} )
-                else
-                    qos.Return (true,env) // "shortcut rule" : if the join condition is false we consider the activity successful
-            )))
-        let rec rev = function
-        | [] -> fun (env:EnvType) -> qos.Return(true,env)
-        | (n,h)::t -> fun env ->
-            match h env with
-            | Min -> Min
-            | Max (false,env) -> Max (false,env)
-            
-        rev l1
-//evaluates expression. We require an environment where all dependent activities have been evaluated.
+                    let activityResult,modifiedEnv = activity env
+                    //after hearing activity result we trigger links by adding the result to the environment
+                    qos.After( (activityResult,modifiedEnv), (fun (success,env) -> 
+                        (qos.Return true),//variable assignation always succeed with maximum QoS
+                            if success then 
+                                { EnvType.variables = env.variables; incomingLinks=env.incomingLinks.Add(linkname,q)}
+                            else
+                                env))
 
-//activity are imperative, i.e. we add an environment to the input and the output of semantic function
-//The semantic domain for activities is the distribution domain conditioned on the environment status
-let combinedSeq a1 a2 env=
-    bind ( fun (e1,q1)-> 
-            bind (fun (e2,q2) ->
-            always (e2,qos.After(q1,fun () -> q2))
-            ) (a2 e1)
-    ) (a1 env)
-let rec activityEval = function
-    | Invoke d -> fun env -> bind(fun d -> always (env,d)) d
-    | Flow l ->
-        //we expect l to be sorted respect to dependencies. As race conditions are undefined we just evaluate everything according to the order given.
-        //
-        match l with
-        | [] -> fun env -> always (env,qos.Return true)
-        | (g,a,n)::t ->
-            fun (env:EnvType) ->
-                let g = expEval g env
-                let a = activityEval a env
-                bind (fun (newEnv,q) ->
-                    always (qos.After( g,fun g -> if g then newEnv,q else env,true))
-                ) a
+            )))
