@@ -43,6 +43,7 @@ type QoS(time:float) =
     static member worseCaseBehavior ( q1:QoS,q2:QoS) = //not yet used
         new QoS(max q1.Time q2.Time)
 
+
 //carries both QoS and value information. Extends QoS type with bottom (Min) to represent nontermination and top value (Max), i.e. the QoS value for independent expressions
 type QoSStructural<'T> =
     | Max of 'T
@@ -51,16 +52,18 @@ type QoSStructural<'T> =
 
 //defines composition function for QoSStructural. Need not to be a type, it's just for collecting them together
 type QoSComposer () =
-    member x.After (q:QoSStructural<'T>,f:'T->QoSStructural<'U>) =
+    member x.After<'T,'U,'W> ((q:QoSStructural<'T>,(env:'W)),f:('T*'W)->(QoSStructural<'U>*'W)) =
         //after represent sequential dependance. 
         match q with
         | Max v -> f v
-        | Min -> Min
+        | Min -> Min,env
         | Some (v,t) ->
             match f v with
-            | Max v1 -> Some (v1,t)
-            | Min -> Min
-            | Some (v1,t1) -> Some(v1,QoS.sequentialBehavior(t,t1))
+            | Max v1,env -> Some (v1,t),env
+            | Min,env -> Min,env
+            | Some (v1,t1),env -> Some(v1,QoS.sequentialBehavior(t,t1)),env
+    member x.After<'T,'U> (q:QoSStructural<'T>,f:'T->QoSStructural<'U>) =
+        fst(x.After((q,()),(fun (x,_) -> (f x),())))
     member x.Return (b:'T) =
         //return represent values with maximum QoS, either success or failure.
         // Used for composition 
@@ -127,20 +130,20 @@ let expEval exp ( env:EnvType ) =
 
 //our semantic is a success function plus a status transformation
 let rec getQoS = function
-    | Nothing -> fun (env:EnvType) -> qos.Return (true,env)  // Nothing always succeeds, not changing status
-    | Throw -> fun env -> qos.Return (false,env) // throw always fails, not changing status
+    | Nothing -> fun (env:EnvType) -> (qos.Return true),env  // Nothing always succeeds, not changing status
+    | Throw -> fun env -> (qos.Return false),env // throw always fails, not changing status
     | Scope (inner,faultHandler) ->
         let inner = getQoS inner
         let faultHandler = getQoS faultHandler
         fun env ->
         qos.After(inner env,
-            fun (success,status) ->
+            fun (success,env) ->
                 if success then
-                    qos.Return(true,status)
+                    (qos.Return true),env
                 else
-                    qos.After(faultHandler status, // if inner activity failed we run the fault handler
-                        fun (success,status) ->
-                            qos.Return(success,status)// the composed status transform
+                    qos.After(faultHandler status,env, // if inner activity failed we run the fault handler
+                        fun (success,env) ->
+                            qos.Return(success),env
                         )
             ) 
     | Sequence  (a1,a2) ->
@@ -148,14 +151,14 @@ let rec getQoS = function
         let a2 = getQoS a2
         fun env ->
         qos.After(a1 env,
-            fun (success,status) ->
+            fun (success,env) ->
                 if success then
-                    qos.After(a2 status, // if a1 succeeded we run the a2
-                        fun (success,status) ->
-                            qos.Return(success,status)
+                    qos.After(a2 env, // if a1 succeeded we run the a2
+                        fun (success,env) ->
+                            (qos.Return success),env
                         )
                 else
-                    qos.Return(false,status) 
+                    (qos.Return false),env
             )
     | Flow l ->
         //we assume:
@@ -208,5 +211,3 @@ let rec activityEval = function
                 bind (fun (newEnv,q) ->
                     always (qos.After( g,fun g -> if g then newEnv,q else env,true))
                 ) a
-
-
