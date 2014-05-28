@@ -32,9 +32,24 @@ let bind (f:'U->DiscreteDistribution<'T>) (x:DiscreteDistribution<'U>) = x.MMap 
 
 [<Struct>]
 type QoS(time:float,price:float) =
+    //properties:
+    // a + b = b + a (commutative +)
+    // a + ( b + c ) = (a + b) + c (associative +)
+    // a + b = max(a,a+b) (order preserving +) (a + b > a)
+    // (a.b).c = a.(b.c) (associative .)
+    // max(a.b,b) = a.b (order preserving .) (a.b > b)
+    // (a+b).c = max(a,b).c (left subaddictive .)
+    // a.(b+c) = a.b + a.c (right distributive)
+    [a;[b;c]]
+    a + a.(b+b.c) //def
+    a + a.b + a.b.c // right distributive
+    [[a;b];c]
+    (a+a.b) + (a+a.b).c //def
+    a + a.b + max(a,a.b).c //left subaddictive .
+    a + a.b + a.b.c //order preserving .
     static member Top = QoS(0.0,0.0)
-    member private x.Time = time
-    member private x.Price = price
+    member x.Time = time
+    member x.Price = price
     member q1.Delay ( q2:QoS) =
         QoS(q1.Time + q2.Time,q1.Price)
     static member payBoth ( q1:QoS,q2:QoS) =
@@ -124,7 +139,7 @@ let rec getQoS = function
             | other -> other
              
     | Sequence  (a1,a2) ->
-        let a1 = getQoS a1
+        let a1 = getQoS a1 //recu
         let a2 = getQoS a2
         fun env ->
             match a1 env with
@@ -196,3 +211,134 @@ let rec getQoS = function
             | False -> (True,previousQuality),env
             | Bottom -> (Bottom,previousQuality),env
         whileSem QoS.Top
+
+
+
+let invok = Invoke(True,QoS.Top)
+
+let f = getQoS (invok)
+let (r,q),e = f Map.empty
+q.Time
+
+
+
+// to evaluate an expression we need an environment which holds
+// the pre-computed results of external invocations
+let eval expr env =
+    match expr with
+    | Invoke (invocationId) ->
+        // we just pick up the value from the environment
+        env.[invocationId]
+    | Sequence (a1,a2) ->
+        // in a sequence we evaluate the second activity only if
+        // the first is successful.
+        let outcome1,cost1 = eval a1 env
+        match outcome with
+        | Success ->
+            // the outcome of the sequence is the outcome of a2
+            // the cost of the sequence is the cost of both a1 
+            // and a2 delayed by a1 
+            let outcome2,cost2 = eval a2 env
+            outcome2, Both(cost1,Delay(cost2,cost1))
+        | other ->
+            // in any other case a2 is dead code, hence the
+            // cost and outcome is the same as just a1
+            other, cost1
+    | Scope (mainActivity,faultHandler) ->
+        // scope is used to define a fault handler.
+        // Its control flow is the same as the sequence except
+        // that it continues execution only when the first
+        // activity is faulty
+        let outcome1,cost1 = eval mainActivity env
+        match outcome with
+        | Fault ->
+            // we execute fault handler paying its cost delayed
+            // by the cost of the main activity
+            let outcome2,cost2 = eval faultHandler env
+            outcome2, Both(cost1,Delay(cost2,cost1))
+        | other ->
+            // we do not execute fault handler and keep the
+            // main activity result
+            other, cost1
+    | If (branchId, thenActivity,elseActivity) ->
+        // since guard evaluation depends on variables we can't
+        // compute it. We will use an estimation from the environment
+        if env.[branchId] then
+            eval thenActivity env
+        else
+            eval elseActivity env
+    | Flow (activityList) ->
+        // We sort activities so that for each link the source
+        // activity appears before the target activity. This
+        // is possible because the link graph is acyclic
+        let sortedActivities = Sort(activityList)
+        // we evaluate each activity in order, delaying them to wait
+        // for link to be set, and we store them in a structure
+        let mutable linkStatus = Map.empty // maps a link to its status
+        let mutable activityResults = Map.empty // map an activity to its result
+        let mutable flowOutcome = Success
+        let mutable flowCost = Cost.Zero
+        for a in sortedActivities do
+            // we compute the cost of dependencies
+            let mutable dependenciesCost = Cost.Zero
+            let mutable dependenciesOutcome = Success
+            // for each link which we are target of
+            for t in a.linkTargets do
+                let depActivity = t.sourceActivity
+                let outcome,cost = activityResults.[x]
+                match dependenciesOutcome,outcome with
+                | Fault,_ | _,Fault -> dependenciesOutcome <- Fault
+                | Stuck,_ | _,Stuck -> dependenciesOutcome <- Stuck
+                | Success,Success -> dependenciesOutcome <- Success
+                dependenciesCost <- Cost.Both(dependenciesCost,cost)
+            // if all dependencies are successful we can assume this activity
+            // will be executed
+            let mutable cost = Cost.Zero
+            let mutable outcome = dependenciesOutcome
+            if dependenciesOutcome = Success then
+                // we suppose to have a booleanEval function to evaluate
+                // the condition given the link status
+                let condition = booleanEval (a.joinCondition) linkStatus
+                if condition = true then
+                    let o,c = a.activity
+                    outcome <- o
+                    cost <- c
+                for l in a.linkSources do
+                    linkStatus <- linkStatus.Add(l, env.[l.transitionCondition.branchId])
+            activityResults <- activityResults.Add(a,(outcome,Cost.Delay(cost,dependenciesCost)))
+            flowCost <- Cost.Both(flowCost,cost)
+            match flowOutcome,outcome with
+            | Fault,_ | _,Fault -> flowOutcome <- Fault
+            | Stuck,_ | _,Stuck -> flowOutcome <- Stuck
+            | Success,Success -> dependenciesOutcome <- Success
+        flowOutcome,flowCost
+
+
+//sampling code (naive version)
+let availabilityOutcome () =
+    let r = Random(0.0,1.0)
+    if r < 0.02 then
+        Fail
+    else
+        Success
+        
+let expectation projection expression =
+    // costs are converted into summable property by a suitable projection expression
+    let mutable sum = projection (Success,Cost.Zero)
+    // we get bigNumber samples
+    for i = 0 to bigNumber do
+        let mutable env = Map.empty
+        // for each invocation needed by the expression we are evaluating
+        for invocationId in expression.listInvocationIds() do
+            // generate a sample for the service invocation result
+            // and store it into the environment
+            env <- env.Add(invocationId,serviceDescription.[invocationId].getInvocationSample())
+        // evaluate the expression, yielding a sample for outcome and cost
+        // of the service orchestration
+        let outcome,cost = eval expression env
+        // use the projection function to get a summable quantity
+        sum <- sum + (projection (outcome,cost))
+    //divide the quantity by the number of samples generated, to yield the average
+    sum / bigNumber
+
+//Example: 
