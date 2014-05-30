@@ -43,6 +43,7 @@
   <ItemGroup>
     <Compile Include="Compiler.fs" />
     <None Include="Script.fsx" />
+    <Compile Include="Exec.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
