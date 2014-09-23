@@ -17,7 +17,7 @@ type Outcome =
 type Activity =
     | Nothing
     | Assign of string * BoolExpr
-    | Sequence of Activity * Activity
+    | Sequence of Activity list
     | Scope of Activity * Activity
     | IfThenElse of BoolExpr * Activity * Activity
     | While of BoolExpr * Activity
@@ -25,11 +25,41 @@ type Activity =
     | Invoke of (unit -> Outcome*Cost)
     | Flow of ((string*BoolExpr*Activity) list)*((string*BoolExpr*string*string) list)
 
+
+
 module Eval =
+
+    let makeSequence x =
+        Seq.toList x |> Sequence
+
+    let rec PrintBoolExpr = function
+        | Constant b -> if b then "True" else "False"
+        | Or (b1,b2) -> "( " + (PrintBoolExpr b1) + " || " + (PrintBoolExpr b2) + " )"
+        | And (b1,b2) -> "( " + (PrintBoolExpr b1) + " && " + (PrintBoolExpr b2) + " )"
+        | Not b -> "!" + (PrintBoolExpr b)
+        | Variable (vname) -> vname
+
+    let rec PrintActivity = function
+        | Nothing -> "Nothing"
+        | Assign (s , v) -> "Assign(" + s + " = " + (PrintBoolExpr v ) + ")"
+        | Sequence  l ->
+            if l.Length = 0 then
+                "Nothing"
+            else
+                "Sequence(" + ( Seq.map PrintActivity l 
+                |> Seq.reduce (fun a b -> a + ", " + b) ) + ")"
+        | Scope  (ma,fh) -> "Try(" + (PrintActivity ma) + ") Catch (" + (PrintActivity fh) + ")"
+        | IfThenElse  (guard,thenActivity,elseActivity) -> "If(" + (PrintBoolExpr guard) + ", " + (PrintActivity thenActivity) + ", " + (PrintActivity elseActivity) + ")"
+        | While  (guard,body) -> "While(" + (PrintBoolExpr guard) + ", " + (PrintActivity body) + ")"
+        | OpaqueAssign  (s , v) -> "OpaqueAssign(" + s + " : " + ((100.0 * v).ToString()) + "%)"
+        | Invoke  func -> "Invoke(" + (func.GetType ()).ToString() + ")"
+        | Flow  _ -> "Flow(...)" //((string*BoolExpr*Activity) list)*((string*BoolExpr*string*string) list)
+
+
     
     let flip =
         let g =new System.Random()
-        fun v -> g.NextDouble() < v
+        fun v () -> g.NextDouble() < v
         
     let Zero = 0.0,0.0:Cost
     let Both(c1:Cost,c2:Cost) =
@@ -109,10 +139,11 @@ module Eval =
         env,flowOutcome,flowCost
     and Exec (env:Map<string,bool>) = function
     | Nothing -> env,Success,Zero
-    | Sequence (a1,a2) ->
-        let newEnv,outcome,cost = Exec env a1
+    | Sequence ([]) -> env,Success,Zero
+    | Sequence (h::t) ->
+        let newEnv,outcome,cost = Exec env h
         if outcome = Success then
-            let newerEnv,outcome, newCost = Exec newEnv a2
+            let newerEnv,outcome, newCost = Exec newEnv (Sequence t)
             newerEnv,outcome,Both(cost,Delay(newCost,cost))
         else
             newEnv,outcome,cost
@@ -132,13 +163,13 @@ module Eval =
     | While(guard,body) ->
         let guardValue = boolExprEval env guard
         if guardValue then
-            Exec env (Sequence (body,While(guard,body)))
+            Exec env (Sequence ([body;While(guard,body)]))
         else
             env,Success,Zero
     | Assign (name,expr) ->
         env.Add(name,boolExprEval env expr),Success,Zero
     | OpaqueAssign (name,prob) ->
-        env.Add(name,flip prob),Success,Zero
+        env.Add(name,flip prob ()),Success,Zero
     | Invoke (samplingFun) ->
         let outcome,cost = samplingFun()
         env,outcome,cost
@@ -172,29 +203,41 @@ module Eval =
         let outcome,cost = allCostsOutcomes allActivitiesOutcomes allDelayedCosts (activities |> List.map (fun (a,_,_)->a))
         env,outcome,cost
 
+    let outcomeFromProbabilities =
+        let g = new System.Random()
+        fun (plist:(float*(Outcome*Cost)) list) ->
+            let norm = 1.0/(List.sumBy fst plist)
+            let plist,vlist = List.unzip plist
+            let cprob = plist |> List.map ((*)norm) |>  List.scan (+) 0.0 |> List.tail
+            let cpv = List.zip cprob vlist
+            fun () ->
+                let number = g.NextDouble()
+                List.find (fun (x,y) -> x > number) cpv |> snd
+
+
     let riskSamplingFun () =
-        if flip 0.01 then
+        if flip 0.01 () then
             Stuck,(0.1,0.0)
-        else if flip (0.69/0.99) then
+        else if flip (0.69/0.99) ()then
             Success,(0.1,1.0)
         else
             Success,(0.1,2.0)
 
     let approvalSamplingFun() =
-        if flip 0.15 then
+        if flip 0.15 ()then
             Fault,(0.0,300.0)
-        else if flip (0.3/0.85) then
+        else if flip (0.3/0.85) () then
             Success,(5.0,600.0)
-        else if flip (0.35/0.55) then
+        else if flip (0.35/0.55) () then
             Success,(10.0,1200.0)
         else
             Success,(15.0,1800.0)
             
     let receiveBlock = OpaqueAssign ("bigAmount",0.5)
-    let riskAssessBlock = IfThenElse(Variable "bigAmount",Assign("highRisk",Constant false),Sequence(Invoke(riskSamplingFun),OpaqueAssign("highRisk",0.6)))
+    let riskAssessBlock = IfThenElse(Variable "bigAmount",Assign("highRisk",Constant false),Sequence([Invoke(riskSamplingFun);OpaqueAssign("highRisk",0.6)]))
     let approvalBlock = 
         IfThenElse(Or(Variable "bigAmount",Variable "highRisk"),
-            Sequence(Assign("whileGuard",Constant true),
+            Sequence([Assign("whileGuard",Constant true);
             While(Variable "whileGuard",
-                Scope(Sequence(Invoke approvalSamplingFun,Assign("whileGuard",Constant false)),Nothing))),Nothing)
-    let total = Sequence(Sequence(receiveBlock,riskAssessBlock),approvalBlock)
+                Scope(Sequence([Invoke approvalSamplingFun;Assign("whileGuard",Constant false)]),Nothing))]),Nothing)
+    let total = Sequence([receiveBlock;riskAssessBlock;approvalBlock])
