@@ -34,27 +34,22 @@ module Eval =
 
     let rec PrintBoolExpr = function
         | Constant b -> if b then "True" else "False"
-        | Or (b1,b2) -> "( " + (PrintBoolExpr b1) + " || " + (PrintBoolExpr b2) + " )"
-        | And (b1,b2) -> "( " + (PrintBoolExpr b1) + " && " + (PrintBoolExpr b2) + " )"
-        | Not b -> "!" + (PrintBoolExpr b)
+        | Or (b1,b2) -> sprintf "(%s||%s)" (PrintBoolExpr b1) (PrintBoolExpr b2)
+        | And (b1,b2) -> sprintf "(%s&&%s)" (PrintBoolExpr b1) (PrintBoolExpr b2)
+        | Not b -> sprintf "!%s" (PrintBoolExpr b)
         | Variable (vname) -> vname
 
     let rec PrintActivity = function
         | Nothing -> "Nothing"
-        | Assign (s , v) -> "Assign(" + s + " = " + (PrintBoolExpr v ) + ")"
+        | Assign (s , v) -> sprintf "Assign(%s <- %s)" s (PrintBoolExpr v) 
         | Sequence  l ->
-            if l.Length = 0 then
-                "Nothing"
-            else
-                "Sequence(" + ( Seq.map PrintActivity l 
-                |> Seq.reduce (fun a b -> a + ", " + b) ) + ")"
-        | Scope  (ma,fh) -> "Try(" + (PrintActivity ma) + ") Catch (" + (PrintActivity fh) + ")"
-        | IfThenElse  (guard,thenActivity,elseActivity) -> "If(" + (PrintBoolExpr guard) + ", " + (PrintActivity thenActivity) + ", " + (PrintActivity elseActivity) + ")"
-        | While  (guard,body) -> "While(" + (PrintBoolExpr guard) + ", " + (PrintActivity body) + ")"
-        | OpaqueAssign  (s , v) -> "OpaqueAssign(" + s + " : " + ((100.0 * v).ToString()) + "%)"
-        | Invoke  func -> "Invoke(" + (func.GetType ()).ToString() + ")"
-        | Flow  _ -> "Flow(...)" //((string*BoolExpr*Activity) list)*((string*BoolExpr*string*string) list)
-
+            sprintf "Sequence(%A)" ( Seq.map PrintActivity l )
+        | Scope  (ma,fh) -> sprintf "Scope(%s,handler:%s)"(PrintActivity ma) (PrintActivity fh)
+        | IfThenElse  (guard,thenActivity,elseActivity) -> sprintf "If(%s,%s,%s)" (PrintBoolExpr guard) (PrintActivity thenActivity) (PrintActivity elseActivity) 
+        | While  (guard,body) -> sprintf "While(%s,%s)" (PrintBoolExpr guard)  (PrintActivity body)
+        | OpaqueAssign  (s , v) -> sprintf "OpaqueAssign(%s:%f%%)" s  (100.0 * v)
+        | Invoke  func -> sprintf "Invoke(%+A)" func
+        | Flow (a1,a2)-> sprintf "Flow(%+A)" (a1,a2) 
 
     
     let flip =
@@ -238,6 +233,6 @@ module Eval =
     let approvalBlock = 
         IfThenElse(Or(Variable "bigAmount",Variable "highRisk"),
             Sequence([Assign("whileGuard",Constant true);
-            While(Variable "whileGuard",
-                Scope(Sequence([Invoke approvalSamplingFun;Assign("whileGuard",Constant false)]),Nothing))]),Nothing)
+                     While(Variable "whileGuard",
+                           Scope(Sequence([Invoke approvalSamplingFun;Assign("whileGuard",Constant false)]),Nothing))]),Nothing)
     let total = Sequence([receiveBlock;riskAssessBlock;approvalBlock])
