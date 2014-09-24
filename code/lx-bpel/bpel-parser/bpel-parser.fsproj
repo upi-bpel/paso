@@ -43,9 +43,11 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
+    <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Probability.fs" />
+    <Compile Include="Analyzer.fs" />
     <Compile Include="Program.fs" />
     <None Include="App.config" />
   </ItemGroup>
