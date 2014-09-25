@@ -19,7 +19,7 @@ let main argv =
     let test_analyzer = Analyzer.Analyzer()
     Probability.Probability.path <- Annotation_Path
     let activity =
-        test_analyzer.TraverseNodes doc.ChildNodes
+        test_analyzer.TraverseNodes doc.ChildNodes <| System.Collections.Generic.List<Analyzer.Link>()
         |> lx_bpel.Eval.makeSequence
     printfn "\n\n\n Eval = \n\n%s" <| lx_bpel.Eval.PrintActivity activity
     printfn "\n..............."

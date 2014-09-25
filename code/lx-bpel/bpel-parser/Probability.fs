@@ -38,7 +38,7 @@ type Probability(name,success,fault,stuck,cost,time) =
                             temp.name <- n
                             temp.success <- Double.Parse(v,System.Globalization.CultureInfo.InvariantCulture)
                             Prob_list.Add temp
-                            temp.print()
+                            //temp.print()
                 | 2 -> for v in Seq.skip 1 parts do
                             let p1 = v.Split ':'
                             let temp = Probability ()
@@ -52,7 +52,7 @@ type Probability(name,success,fault,stuck,cost,time) =
                             | "st" -> temp.stuck <- x
                             | _ -> printfn "error: invalid character found in probability list"
                             Prob_list.Add temp
-                            temp.print ()
+                            //temp.print ()
                 | _ -> printfn "error: invalid parameter"
         Prob_list
     
