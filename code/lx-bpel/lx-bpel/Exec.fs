@@ -218,18 +218,24 @@ module Eval =
 
     
     let activityToposort (activities:(string*BoolExpr*Activity) seq) (links:(string*BoolExpr*string*string) seq) =
+        //let mutable nodemark = Map.empty
+        //for (name,guard,activity) in activities do
+        //    let key,value = name,(guard,activity,ref false)
+        //    nodemark <- Map.add key value nodemark
         let nodemark = 
             activities
             |> Seq.map (fun (name,guard,activity) -> name,(guard,activity, ref false))
             |> Seq.fold (fun map (key,value) -> Map.add key value map) Map.empty
 
+        //seq{0..100} |> Seq.fold (fun st num -> st + num) 0
+        //seq{0..100} |> Seq.fold (+) 0
 
-            //seq{0..100} |> Seq.fold (fun st num -> st + num) 0
-            //seq{0..100} |> Seq.fold (+) 0
         let neighborhoods = 
             links
             |> Seq.groupBy (fun (name,guard,source,target) -> source)
             |> Seq.fold (fun map (key,value) -> Map.add key (Seq.toList value) map) Map.empty
+
+
 
         let rec visit tail nodename =
             let guard,activity,mark = Map.find nodename nodemark
