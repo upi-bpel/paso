@@ -223,23 +223,30 @@ module Eval =
             |> Seq.map (fun (name,guard,activity) -> name,(guard,activity, ref false))
             |> Seq.fold (fun map (key,value) -> Map.add key value map) Map.empty
 
-        let edgemark = 
+
+            //seq{0..100} |> Seq.fold (fun st num -> st + num) 0
+            //seq{0..100} |> Seq.fold (+) 0
+        let neighborhoods = 
             links
             |> Seq.groupBy (fun (name,guard,source,target) -> source)
-            |> Seq.fold (fun map (key,value) -> Map.add key value map) Map.empty
+            |> Seq.fold (fun map (key,value) -> Map.add key (Seq.toList value) map) Map.empty
 
-        let rec visit nodename tail =
+        let rec visit tail nodename =
             let guard,activity,mark = Map.find nodename nodemark
             if not !mark then
                 mark := true
-                let neighborhood = edgemark.[nodename]
-                let tail = Seq.fold (fun t (name,guard,source,target) -> visit target t) tail neighborhood
+                let neighborhood = neighborhoods.[nodename] |> Seq.map (fun (name,guard,source,target) -> target)
+                //let mutable tail = tail
+                //for target in neighborhood do
+                //    tail <- visit tail target
+                let tail = Seq.fold visit tail neighborhood
+
                 (nodename,guard,activity)::tail
             else
                 tail
 
 
-        nodemark |> Seq.cast<string*(BoolExpr*string*string)> |> Seq.fold (fun t (name,(guard,activity,mark)) -> visit name t) []
+        nodemark |> Seq.cast<string*(BoolExpr*string*string)> |> Seq.fold (fun t (name,(guard,activity,mark)) -> visit t name) []
         
     let riskSamplingFun () =
         if flip 0.01 () then
