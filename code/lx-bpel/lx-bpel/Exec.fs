@@ -1,4 +1,8 @@
 ﻿namespace lx_bpel
+module utility =
+    let invtuple2 a b = (b,a)
+
+
 type BoolExpr =
     | Constant of bool
     | Or of BoolExpr*BoolExpr
@@ -210,6 +214,33 @@ module Eval =
                 List.find (fun (x,y) -> x > number) cpv |> snd
 
 
+
+
+    
+    let activityToposort (activities:(string*BoolExpr*Activity) seq) (links:(string*BoolExpr*string*string) seq) =
+        let nodemark = 
+            activities
+            |> Seq.map (fun (name,guard,activity) -> name,(guard,activity, ref false))
+            |> Seq.fold (fun map (key,value) -> Map.add key value map) Map.empty
+
+        let edgemark = 
+            links
+            |> Seq.groupBy (fun (name,guard,source,target) -> source)
+            |> Seq.fold (fun map (key,value) -> Map.add key value map) Map.empty
+
+        let rec visit nodename tail =
+            let guard,activity,mark = Map.find nodename nodemark
+            if not !mark then
+                mark := true
+                let neighborhood = edgemark.[nodename]
+                let tail = Seq.fold (fun t (name,guard,source,target) -> visit target t) tail neighborhood
+                (nodename,guard,activity)::tail
+            else
+                tail
+
+
+        nodemark |> Seq.cast<string*(BoolExpr*string*string)> |> Seq.fold (fun t (name,(guard,activity,mark)) -> visit name t) []
+        
     let riskSamplingFun () =
         if flip 0.01 () then
             Stuck,(0.1,0.0)

@@ -132,11 +132,13 @@ type Analyzer () =
                     x.TraverseNodes node.ChildNodes linkList 
                     |> Seq.map (fun a -> "weneedaname",lx_bpel.Constant true,a )
                     |> Seq.toList
-                linkList
-                |> Seq.map (fun (l:Link) -> (l.name,lx_bpel.Variable l.transitionCondition,l.source,l.target))
-                |> Seq.toList
-                |> tuple2 activityList
-                |> lx_bpel.Flow
+                let linkList =
+                    linkList
+                    |> Seq.map (fun (l:Link) -> (l.name,lx_bpel.Variable l.transitionCondition,l.source,l.target))
+                    |> Seq.toList
+                let activityList = lx_bpel.Eval.activityToposort activityList linkList
+
+                lx_bpel.Flow (activityList,linkList)
                 |> temp.Add
             | _ ->
                 //printf "unrecognized activity: %s" activityName
