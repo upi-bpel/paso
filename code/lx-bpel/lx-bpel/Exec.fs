@@ -241,18 +241,21 @@ module Eval =
             let guard,activity,mark = Map.find nodename nodemark
             if not !mark then
                 mark := true
-                let neighborhood = neighborhoods.[nodename] |> Seq.map (fun (name,guard,source,target) -> target)
-                //let mutable tail = tail
-                //for target in neighborhood do
-                //    tail <- visit tail target
-                let tail = Seq.fold visit tail neighborhood
+                match Map.tryFind nodename neighborhoods with
+                | Some n -> 
+                    let neighborhood = n |> Seq.map (fun (name,guard,source,target) -> target)
+                    //let mutable tail = tail
+                    //for target in neighborhood do
+                    //    tail <- visit tail target
+                    let tail = Seq.fold visit tail neighborhood
 
-                (nodename,guard,activity)::tail
+                    (nodename,guard,activity)::tail
+                | None -> (nodename,guard,activity)::tail
             else
                 tail
 
 
-        nodemark |> Seq.cast<string*(BoolExpr*string*string)> |> Seq.fold (fun t (name,(guard,activity,mark)) -> visit t name) []
+        nodemark |> Map.fold (fun t name (guard,activity,mark) -> visit t name) []
         
     let riskSamplingFun () =
         if flip 0.01 () then
