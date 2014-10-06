@@ -113,7 +113,7 @@ type Analyzer (probabilityAnnotations:Probability.ProbabilityAnnotation) =
                 |> temp.Add
             | "invoke" ->
                 x.TransverseNodesActivity node.ChildNodes linkList parentName
-                match Map.tryFind node.Attributes.["partnerLink"].Value probabilityAnnotations.endpoints with
+                match Map.tryFind (node.Attributes.["name"].Value+"_pl_"+node.Attributes.["partnerLink"].Value) probabilityAnnotations.endpoints with
                 | Some (list,samplingFunction) ->
                     Invoke samplingFunction
                     |> tuple2 parentName

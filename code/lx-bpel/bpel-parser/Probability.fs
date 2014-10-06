@@ -116,6 +116,12 @@ type ProbabilityAnnotation () =
         p.endpoints <- List.fold (fun map (node:XmlNode) ->
             let name =
                 seq{ for i in node.ChildNodes -> i }
+                |> Seq.filter (nameIs "name")
+                |> Seq.toList
+                |> List.head
+                |> (fun n -> n.InnerText)
+            let partnerLink =
+                seq{ for i in node.ChildNodes -> i }
                 |> Seq.filter (nameIs "partnerLink")
                 |> Seq.toList
                 |> List.head
@@ -148,7 +154,7 @@ type ProbabilityAnnotation () =
                     p,(o,(cost,time))
                     )
                 |> lx_bpel.Eval.outcomeFromProbabilities
-            Map.add name (events,samplingFunction) map        
+            Map.add (name+"_pl_"+partnerLink) (events,samplingFunction) map        
         ) Map.empty endpoints 
 
         p
