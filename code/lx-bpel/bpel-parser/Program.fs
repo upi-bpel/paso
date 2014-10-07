@@ -1,11 +1,38 @@
-﻿// Learn more about F# at http://fsharp.net
-// See the 'F# Tutorial' project for more help.
+﻿
 
 [<EntryPoint>]
 let main argv =
-    let data_path = @"D:\Dropbox\Code\ConsoleApplication1\Data\"
-    let data_path = @"C:\Users\pq\Documents\GitHub\bpel_to_fsharp\Data\"
-    let mutable BPEL_path = sprintf "%sflow.bpel" data_path
+    //************************************ 1 ************************************************
+    //1.	sequence        
+    //2.	if
+//    let data_path = @"D:\Dropbox\Code\ConsoleApplication1\BPEL_Examples\List\Concat4\"
+//    let mutable BPEL_path = sprintf "%sConcat4.bpel" data_path
+    //************************************ 2 ************************************************
+    //1.	sequence
+    //2.	flow (source, target, joinCondition, transitionCondition)
+//    let data_path = @"D:\Dropbox\Code\ConsoleApplication1\BPEL_Examples\List\flowLinksCondition\"
+//    let mutable BPEL_path = sprintf "%sflowLinksCondition.bpel" data_path    
+    //************************************* 3 ***********************************************
+    //1.	flow (source, target, transitionCondition)
+    //2.	invoke
+    //3.	faultHandlers
+//    let data_path = @"D:\Dropbox\Code\ConsoleApplication1\BPEL_Examples\List\loanApprovalProcess\"
+//    let mutable BPEL_path = sprintf "%sloanApprovalProcess.bpel" data_path    
+    //************************************** 4 **********************************************
+    //1.	sequence
+    //2.	flow (source, target, joinCondition, transitionCondition)
+    //3.	if else
+    //4.	while
+    //5.	invoke
+//    let data_path = @"D:\Dropbox\Code\ConsoleApplication1\BPEL_Examples\List\TestActivityFlow\"
+//    let mutable BPEL_path = sprintf "%sTestActivityFlow.bpel" data_path
+    //************************************** 5 **********************************************
+    //1.	Scope
+    //2.	Sequence
+//    let data_path = @"D:\Dropbox\Code\ConsoleApplication1\BPEL_Examples\List\Scope-CompensateScope\"
+//    let mutable BPEL_path = sprintf "%sScope-CompensateScope.bpel" data_path
+    //************************************************************************************
+
     let mutable Annotation_Path = sprintf "%sAnnotation.xml" data_path
     match argv.Length with
     | 0 -> ()
