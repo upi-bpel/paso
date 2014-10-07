@@ -115,11 +115,13 @@ type ProbabilityAnnotation () =
         
         p.endpoints <- List.fold (fun map (node:XmlNode) ->
             let name =
-                seq{ for i in node.ChildNodes -> i }
-                |> Seq.filter (nameIs "name")
-                |> Seq.toList
-                |> List.head
-                |> (fun n -> n.InnerText)
+                let nodelist =
+                    seq{ for i in node.ChildNodes -> i }
+                    |> Seq.filter (nameIs "name")
+                    |> Seq.toList
+                match nodelist with
+                | [] -> ""
+                | h::t -> h.InnerText
             let partnerLink =
                 seq{ for i in node.ChildNodes -> i }
                 |> Seq.filter (nameIs "partnerLink")
