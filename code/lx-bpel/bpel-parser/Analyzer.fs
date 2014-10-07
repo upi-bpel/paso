@@ -59,28 +59,53 @@ type Analyzer (probabilityAnnotations:Probability.ProbabilityAnnotation) =
             | _ -> ()
         ()
 
-    member x.TraverseNodes (nodes:XmlNodeList) (linkList:System.Collections.Generic.List<Link>): System.Collections.Generic.List<string*lx_bpel.Activity> =
+    member x.TraverseNodes (nodes:XmlNodeList) (linkList:System.Collections.Generic.List<Link>): (lx_bpel.Activity list)*System.Collections.Generic.List<string*lx_bpel.Activity> =
         let temp = System.Collections.Generic.List<string*lx_bpel.Activity>()
+        let mutable handler : lx_bpel.Activity list = []
         let r = new System.Random ()
 
         let emptyList = System.Collections.Generic.List<Link>()
         for node in nodes do
-            let nodeName = node.Name.ToLower()
+            let nodeName = node.Name.ToLower() 
             let parentName = sprintf "%s%d" nodeName (r.Next())
             match nodeName with
+            | "faulthandlers" ->
+                let newHandler =
+                    let _,actlist =x.TraverseNodes (node.ChildNodes) linkList
+                    actlist
+                    |> Seq.map snd
+                    |> Eval.makeSequence 
+                handler <- List.Cons (newHandler,handler) // newHandler::handler
+                // Some (Eval.makeSequence (Seq.map snd (snd(x.TraverseNodes (node.ChildNodes) linkList))))
             | "sequence" ->
+                let seqActivity =
+                    x.TransverseNodesActivity node.ChildNodes linkList parentName
+                    let h,actlist = x.TraverseNodes(node.ChildNodes) linkList
+                    handler <- List.append h handler //  h @ handler
+                    actlist
+                    |> Seq.map snd
+                    |> Eval.makeSequence
+                temp.Add (parentName,seqActivity)
+            | "scope" ->
                 x.TransverseNodesActivity node.ChildNodes linkList parentName
-                x.TraverseNodes(node.ChildNodes) emptyList
-                |> Seq.map snd
-                |> Eval.makeSequence
-                |> tuple2 parentName
-                |> temp.Add
+                let h,actlist = x.TraverseNodes(node.ChildNodes) linkList
+                let seqActivity =
+                    actlist
+                    |> Seq.map snd
+                    |> Eval.makeSequence
+                let handlerActivity =
+                    h
+                    |> Eval.makeSequence
+                let scopeActivity = lx_bpel.Scope (seqActivity,handlerActivity)
+                temp.Add (parentName,scopeActivity)
             | "if" ->
                 x.TransverseNodesActivity node.ChildNodes linkList parentName
                 let probability =  probabilityAnnotations.conditions.[node.ChildNodes.[0].InnerText]
-                let thenL = x.TraverseNodes node.ChildNodes.[1].ChildNodes emptyList
+                let h,thenL = x.TraverseNodes node.ChildNodes.[1].ChildNodes emptyList
+                handler <- List.append h handler
                 let thenA = if thenL.Count = 0 then Nothing else snd thenL.[0]
-                let elseL = x.TraverseNodes node.ChildNodes.[2].ChildNodes emptyList
+                let h,elseL = x.TraverseNodes node.ChildNodes.[2].ChildNodes emptyList
+                handler <- List.append h handler
                 let elseA = if elseL.Count = 0 then Nothing else snd elseL.[0]
                 let variableName = sprintf "Var%d" <| r.Next()
                 (variableName,probability)
@@ -99,8 +124,8 @@ type Analyzer (probabilityAnnotations:Probability.ProbabilityAnnotation) =
                 let variableName = sprintf "Var%d" <| r.Next()
                 let opaqueAssignActivity =
                     OpaqueAssign (variableName,probability)
-                let while_List = x.TraverseNodes node.ChildNodes.[1].ChildNodes emptyList
-                
+                let h, while_List = x.TraverseNodes node.ChildNodes.[1].ChildNodes emptyList
+                handler <- List.append h handler
                 temp.Add (parentName,opaqueAssignActivity)
                 if while_List.Count = 0 then
                     opaqueAssignActivity
@@ -113,7 +138,8 @@ type Analyzer (probabilityAnnotations:Probability.ProbabilityAnnotation) =
                 |> temp.Add
             | "invoke" ->
                 x.TransverseNodesActivity node.ChildNodes linkList parentName
-                match Map.tryFind (node.Attributes.["name"].Value+"_pl_"+node.Attributes.["partnerLink"].Value) probabilityAnnotations.endpoints with
+                let nameNode = node.Attributes.["name"]
+                match Map.tryFind ((if nameNode <> null then nameNode.Value else "" )+"_pl_"+node.Attributes.["partnerLink"].Value) probabilityAnnotations.endpoints with
                 | Some (list,samplingFunction) ->
                     Invoke samplingFunction
                     |> tuple2 parentName
@@ -132,7 +158,9 @@ type Analyzer (probabilityAnnotations:Probability.ProbabilityAnnotation) =
                 //XmlNode t3 = Sort_Activities.sort(node);
                 let linkList = System.Collections.Generic.List<Link>()
                 let activityList =
-                    x.TraverseNodes node.ChildNodes linkList 
+                    let h,activitylist = x.TraverseNodes node.ChildNodes linkList 
+                    handler <- List.append h handler
+                    activitylist
                     |> Seq.map (fun (name,activity) -> name,lx_bpel.Constant true,activity )
                     |> Seq.toList
                 let linkList =
@@ -146,6 +174,7 @@ type Analyzer (probabilityAnnotations:Probability.ProbabilityAnnotation) =
                 |> temp.Add
             | _ ->
                 //printf "unrecognized activity: %s" activityName
-                x.TraverseNodes node.ChildNodes linkList
-                |> temp.AddRange
-        temp
+                let h,activityList = x.TraverseNodes node.ChildNodes linkList 
+                handler <- List.append h handler
+                temp.AddRange activityList
+        handler,temp
