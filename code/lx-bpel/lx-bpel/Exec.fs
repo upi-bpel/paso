@@ -20,6 +20,7 @@ type Outcome =
     | Stuck
 type Activity =
     | Nothing
+    | Throw
     | Assign of string * BoolExpr
     | Sequence of Activity list
     | Scope of Activity * Activity
@@ -45,6 +46,7 @@ module Eval =
 
     let rec PrintActivity = function
         | Nothing -> "Nothing"
+        | Throw -> "Throw"
         | Assign (s , v) -> sprintf "Assign(%s <- %s)" s (PrintBoolExpr v) 
         | Sequence  l ->
             sprintf "Sequence(%A)" ( Seq.map PrintActivity l )
@@ -53,7 +55,7 @@ module Eval =
         | While  (guard,body) -> sprintf "While(%s,%s)" (PrintBoolExpr guard)  (PrintActivity body)
         | OpaqueAssign  (s , v) -> sprintf "OpaqueAssign(%s:%f%%)" s  (100.0 * v)
         | Invoke  func -> sprintf "Invoke(%+A)" func
-        | Flow (a1,a2)-> sprintf "Flow(%+A)" (a1,a2) 
+        | Flow (a1,a2)-> sprintf "Flow(\n\t%+A\n\t%+A)" a1 a2 
 
     
     let flip =
@@ -138,6 +140,7 @@ module Eval =
         env,flowOutcome,flowCost
     and Exec (env:Map<string,bool>) = function
     | Nothing -> env,Success,Zero
+    | Throw -> env,Fault,Zero
     | Sequence ([]) -> env,Success,Zero
     | Sequence (h::t) ->
         let newEnv,outcome,cost = Exec env h
@@ -243,13 +246,13 @@ module Eval =
                 mark := true
                 match Map.tryFind nodename neighborhoods with
                 | Some n -> 
-                    let neighborhood = n |> Seq.map (fun (name,guard,source,target) -> target)
+                    let neighborhood = n |> Seq.map (fun (name,guard,source,target) -> target)|> Seq.toList
                     //let mutable tail = tail
                     //for target in neighborhood do
                     //    tail <- visit tail target
-                    let tail = Seq.fold visit tail neighborhood
+                    let tail2 = Seq.fold visit tail neighborhood
 
-                    (nodename,guard,activity)::tail
+                    (nodename,guard,activity)::tail2
                 | None -> (nodename,guard,activity)::tail
             else
                 tail

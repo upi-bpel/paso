@@ -36,6 +36,9 @@ type Analyzer (probabilityAnnotations:Probability.ProbabilityAnnotation) =
         let mutable activityList = System.Collections.Generic.List<lx_bpel.Activity>()
         for node in nodes do
             match node.Name.ToLower() with
+            | "sources" | "targets" | "links" ->
+                x.TransverseNodesActivity (node.ChildNodes) linkList parentName
+                    
             | "source" | "target" ->
                 let mutable t = Link()
                 t.name <- node.Attributes.["linkName"].Value
@@ -55,7 +58,7 @@ type Analyzer (probabilityAnnotations:Probability.ProbabilityAnnotation) =
             | "link" ->
                 let mutable t = Link()
                 t.name  <- node.Attributes.["name"].Value
-
+                linkList.Add t
             | _ -> ()
         ()
 
@@ -94,8 +97,10 @@ type Analyzer (probabilityAnnotations:Probability.ProbabilityAnnotation) =
                     |> Seq.map snd
                     |> Eval.makeSequence
                 let handlerActivity =
-                    h
-                    |> Eval.makeSequence
+                    match h with
+                    | [] -> lx_bpel.Throw
+                    | a::[] -> a
+                    | _ -> Eval.makeSequence h
                 let scopeActivity = lx_bpel.Scope (seqActivity,handlerActivity)
                 temp.Add (parentName,scopeActivity)
             | "if" ->
@@ -145,7 +150,7 @@ type Analyzer (probabilityAnnotations:Probability.ProbabilityAnnotation) =
                     |> tuple2 parentName
                     |> temp.Add
                 | None -> temp.Add (parentName,lx_bpel.Nothing)
-            | "empty" -> 
+            | "empty" | "assign" | "receive" | "reply" -> 
                 x.TransverseNodesActivity node.ChildNodes linkList parentName
 
                 temp.Add (parentName,Nothing)
@@ -156,7 +161,7 @@ type Analyzer (probabilityAnnotations:Probability.ProbabilityAnnotation) =
                 //activityName,joinCondition,innerActivity
 
                 //XmlNode t3 = Sort_Activities.sort(node);
-                let linkList = System.Collections.Generic.List<Link>()
+                //let linkList = System.Collections.Generic.List<Link>()
                 let activityList =
                     let h,activitylist = x.TraverseNodes node.ChildNodes linkList 
                     handler <- List.append h handler

@@ -16,8 +16,8 @@ let main argv =
     //1.	flow (source, target, transitionCondition)
     //2.	invoke
     //3.	faultHandlers
-//    let data_path = @"D:\Dropbox\Code\ConsoleApplication1\BPEL_Examples\List\loanApprovalProcess\"
-//    let mutable BPEL_path = sprintf "%sloanApprovalProcess.bpel" data_path    
+    let data_path = @"D:\Dropbox\Code\ConsoleApplication1\BPEL_Examples\List\loanApprovalProcess\"
+    let mutable BPEL_path = sprintf "%sloanApprovalProcess.bpel" data_path    
     //************************************** 4 **********************************************
     //1.	sequence
     //2.	flow (source, target, joinCondition, transitionCondition)
@@ -29,8 +29,8 @@ let main argv =
     //************************************** 5 **********************************************
     //1.	Scope
     //2.	Sequence
-    let data_path = @"D:\Dropbox\Code\ConsoleApplication1\BPEL_Examples\List\Scope-CompensateScope\"
-    let mutable BPEL_path = sprintf "%sScope-CompensateScope.bpel" data_path
+//    let data_path = @"D:\Dropbox\Code\ConsoleApplication1\BPEL_Examples\List\Scope-CompensateScope\"
+//    let mutable BPEL_path = sprintf "%sScope-CompensateScope.bpel" data_path
     //************************************************************************************
 
     let mutable Annotation_Path = sprintf "%sAnnotation.xml" data_path
@@ -49,10 +49,34 @@ let main argv =
     //Probability.Probability.path <- Annotation_Path
     let activity =
         let h,activityList = test_analyzer.TraverseNodes doc.ChildNodes (System.Collections.Generic.List<Analyzer.Link>() )
-        (activityList |> Seq.map snd |> lx_bpel.Eval.makeSequence, h |> lx_bpel.Eval.makeSequence)
-        |> lx_bpel.Scope
+        let mainActivity =
+            match activityList |> Seq.toList with 
+            | [] -> lx_bpel.Nothing
+            | (name,a)::[] -> a
+            | l -> lx_bpel.Sequence (List.map snd l)
+        match h with
+        | [] -> mainActivity
+        | a::[] -> lx_bpel.Scope (mainActivity,a)
+        | _ -> lx_bpel.Scope (mainActivity, h |> lx_bpel.Sequence)
+ 
     printfn "\n\n\n Eval = \n\n%s" <| lx_bpel.Eval.PrintActivity activity
     printfn "\n..............."
-    printfn "\n\n\n Exec = \n\n%A" <| lx_bpel.Eval.Exec Map.empty activity
+    printfn "\n\n\nExec = %A" <| lx_bpel.Eval.Exec Map.empty activity
+    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
+    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
+    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
+    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
+    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
+    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
+    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
+    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
+    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
+    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
+    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
+    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
+    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
+    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
+    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
+    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
     System.Console.Read() |> ignore
     0
