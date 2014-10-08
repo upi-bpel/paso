@@ -27,8 +27,65 @@ let Update_List (mylink:Link System.Collections.Generic.List) (t:Link) =
         x.target <- t.target
 
     mylink.[index] <- x
-    
+
+type Tokens =
+    | TkNot
+    | TkAnd
+    | TkOr
+    | TkOpenPar
+    | TkClosedPar
+    | TkVariable of string
+
 type Analyzer (probabilityAnnotations:Probability.ProbabilityAnnotation) =
+    member x.ParseCondition (expression:string) =
+        let rec tokenize (s:char list) =
+            match s with
+            | 'n'::'o'::'t'::tail -> TkNot::(tokenizeSeparator tail)
+            | 'a'::'n'::'d'::tail -> TkAnd::(tokenizeSeparator tail)
+            | 'o'::'r'::tail -> TkOr::(tokenizeSeparator tail)
+            | '$'::tail -> variableToken "" tail
+            | _ -> tokenizeSeparator s
+        and tokenizeSeparator (s:char list) =
+            match s with
+            | ' '::tail -> tokenize tail
+            | '('::tail -> TkOpenPar::tokenize tail
+            | ')'::tail -> TkClosedPar::tokenize tail
+            | [] -> []
+            | _ -> failwith "parse error"
+        and variableToken (varname) (s:char list) =
+            match s with
+            | l::tail when l <> ' ' && l <> '('  && l <> ')' -> variableToken (sprintf "%s%c" varname l) tail
+            | _ -> TkVariable varname::tokenizeSeparator s
+
+        let tokenizedExpr = tokenize (expression |> Seq.toList)
+        //printf "%+A" tokenizedExpr
+        let rec parser tkns =
+            match tkns with
+            | TkOpenPar::tail ->
+                let e,t = parser tail
+                match t with
+                | TkClosedPar::t2 -> binayOperatorParser e t2
+                | _ -> failwith "Unbalanced parenthesis"
+            | TkVariable s::tail ->
+                binayOperatorParser (lx_bpel.Variable s) tail
+            | TkNot::tail ->
+                let e,t = parser tail
+                binayOperatorParser (lx_bpel.BoolExpr.Not e) t
+        and binayOperatorParser lhs tkns =
+            match tkns with
+            | TkAnd::tail ->
+                let e,t = parser tail
+                (lx_bpel.BoolExpr.And (lhs,e)),t
+            | TkOr::tail ->
+                let e,t = parser tail
+                (lx_bpel.BoolExpr.Or (lhs,e)),t
+            | [] -> lhs,[]
+            | _ -> lhs,tkns 
+        let parsedExpr,tail = parser tokenizedExpr
+        match tail with
+        | [] -> printf "\n%+A\n" parsedExpr
+        | _ -> failwithf "trailing tokens %+A" tail
+
     member x.TransverseNodesActivity 
         (nodes:XmlNodeList)
         (linkList:System.Collections.Generic.List<Link>)
@@ -38,7 +95,8 @@ type Analyzer (probabilityAnnotations:Probability.ProbabilityAnnotation) =
             match node.Name.ToLower() with
             | "sources" | "targets" | "links" ->
                 x.TransverseNodesActivity (node.ChildNodes) linkList parentName
-                    
+            | "joincondition" ->
+                x.ParseCondition (node.InnerText)             
             | "source" | "target" ->
                 let mutable t = Link()
                 t.name <- node.Attributes.["linkName"].Value
