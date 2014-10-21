@@ -32,6 +32,9 @@ let show samplesSeq =
             |> Seq.map (fun (environment,outcome,(price,time)) -> price)
         let rMin = Seq.min samplesSeq
         let rMax = Seq.max samplesSeq
+        let range = rMax - rMin
+        let rMin = ((rMin / range) * 100.0 |> truncate) * range / 100.0
+        let rMax = ((rMax / range) * 100.0 + 0.9999 |> truncate) * range / 100.0
         samplesSeq
         |> bucketize rMin rMax
         |> Seq.maxBy snd
@@ -52,23 +55,29 @@ let show samplesSeq =
         |> Chart.WithXAxis (true,"Cost ($)")
     let timeAvg =
         samplesSeq
+        |> Seq.filter (fun (e,o,c) -> o <> lx_bpel.Stuck)
         |> Seq.averageBy (fun (environment,outcome,(price,time)) -> time)
     let histogramTimeAvg =
         let samplesSeq =
             samplesSeq
+            |> Seq.filter (fun (e,o,c) -> o <> lx_bpel.Stuck)
             |> Seq.map (fun (environment,outcome,(price,time)) -> time)
         let rMin = Seq.min samplesSeq
         let rMax = Seq.max samplesSeq
+        let range = rMax - rMin
+        let rMin = ((rMin / range) * 100.0 |> truncate) * range / 100.0
+        let rMax = ((rMax / range) * 100.0 + 0.9999 |> truncate) * range / 100.0
         samplesSeq
         |> bucketize rMin rMax
         |> Seq.maxBy snd
-        |> fun (_,my) ->[ priceAvg,0.0;priceAvg,float my * 1.1]
-        |> fun x -> Chart.Line (x,null,null,["";sprintf "Average time (sec): %.0f" priceAvg],System.Drawing.Color.Red)
+        |> fun (_,my) ->[ timeAvg,0.0;timeAvg,float my * 1.1]
+        |> fun x -> Chart.Line (x,null,null,["";sprintf "Average time (sec): %.1f" timeAvg],System.Drawing.Color.Red)
         //|> Chart.WithXAxis (null,null,null,null,null,null,null,)
 
     let histogramTime =
         let samplesSeq =
             samplesSeq
+            |> Seq.filter (fun (e,o,c) -> o <> lx_bpel.Stuck)
             |> Seq.map (fun (environment,outcome,(price,time)) -> time)
         let rMin = Seq.min samplesSeq
         let rMax = Seq.max samplesSeq
