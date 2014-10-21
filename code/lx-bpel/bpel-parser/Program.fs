@@ -1,5 +1,4 @@
 ﻿
-
 [<EntryPoint>]
 let main argv =
     //************************************ 1 ************************************************
@@ -34,13 +33,18 @@ let main argv =
     //************************************************************************************
 
     let mutable Annotation_Path = sprintf "%sAnnotation.xml" data_path
+    let mutable iterationCount = 10000
     match argv.Length with
     | 0 -> ()
     | 1 ->
         BPEL_path <- argv.[0]
+    | 2 -> 
+        BPEL_path<- argv.[0]
+        Annotation_Path <- argv.[1]
     | _ -> 
         BPEL_path<- argv.[0]
-        Annotation_Path <-argv.[1]
+        Annotation_Path <- argv.[1]
+        System.Int32.TryParse(argv.[2],&iterationCount) |> ignore
 
     let doc = System.Xml.XmlDocument()
     doc.Load(BPEL_path)
@@ -61,22 +65,23 @@ let main argv =
  
     printfn "\n\n\n Eval = \n\n%s" <| lx_bpel.Eval.PrintActivity activity
     printfn "\n..............."
-    printfn "\n\n\nExec = %A" <| lx_bpel.Eval.Exec Map.empty activity
-    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
-    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
-    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
-    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
-    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
-    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
-    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
-    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
-    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
-    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
-    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
-    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
-    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
-    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
-    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
-    printfn "Exec = %A" <| lx_bpel.Eval.Exec Map.empty activity
-    System.Console.Read() |> ignore
+
+    let samplesSeq =
+        Seq.init iterationCount <| fun number ->
+            lx_bpel.Eval.Exec Map.empty activity
+        |> Seq.cache
+
+    Visualizer.show samplesSeq
+//    let costExpectation iterations workflow =
+//        let mutable totalTime,totalPrice,totalSuccesses = 0.0,0.0,0.0
+//        for i = 1 to iterations do
+//            let env = Map.empty
+//            let env,outcome,cost = Eval.Exec env workflow
+//            let price,time = cost
+//            totalPrice <- totalPrice + price
+//            if outcome = Success && (time <= (2400.0)) then
+//                totalTime <- totalTime + time
+//                totalSuccesses <- totalSuccesses + 1.0
+//        totalTime,totalPrice,totalSuccesses
+
     0
