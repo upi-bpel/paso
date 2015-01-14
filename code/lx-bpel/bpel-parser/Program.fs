@@ -1,39 +1,18 @@
 ﻿
 [<EntryPoint>]
 let main argv =
-    //************************************ 1 ************************************************
-    //1.	sequence        
-    //2.	if
-//    let data_path = @"D:\Dropbox\Code\ConsoleApplication1\BPEL_Examples\List\Concat4\"
-//    let mutable BPEL_path = sprintf "%sConcat4.bpel" data_path
-    //************************************ 2 ************************************************
-    //1.	sequence
-    //2.	flow (source, target, joinCondition, transitionCondition)
-//    let data_path = @"D:\Dropbox\Code\ConsoleApplication1\BPEL_Examples\List\flowLinksCondition\"
-//    let mutable BPEL_path = sprintf "%sflowLinksCondition.bpel" data_path    
-    //************************************* 3 ***********************************************
-    //1.	flow (source, target, transitionCondition)
-    //2.	invoke
-    //3.	faultHandlers
-    let data_path = @"D:\Dropbox\Code\ConsoleApplication1\BPEL_Examples\List\loanApprovalProcess\"
-    let mutable BPEL_path = sprintf "%sloanApprovalProcess.bpel" data_path    
-    //************************************** 4 **********************************************
-    //1.	sequence
-    //2.	flow (source, target, joinCondition, transitionCondition)
-    //3.	if else
-    //4.	while
-    //5.	invoke
-//    let data_path = @"D:\Dropbox\Code\ConsoleApplication1\BPEL_Examples\List\TestActivityFlow\"
-//    let mutable BPEL_path = sprintf "%sTestActivityFlow.bpel" data_path
-    //************************************** 5 **********************************************
-    //1.	Scope
-    //2.	Sequence
-//    let data_path = @"D:\Dropbox\Code\ConsoleApplication1\BPEL_Examples\List\Scope-CompensateScope\"
-//    let mutable BPEL_path = sprintf "%sScope-CompensateScope.bpel" data_path
-    //************************************************************************************
+  
+    let data_path = @"D:\Dropbox\Code\ConsoleApplication1\BPEL_Examples\List\loanExample_Paper\"
+    let mutable BPEL_path = sprintf "%sloan.bpel" data_path    
+ 
+
+//** to ask from leonardo: we are assigning Nothing to assign in analyzer.fs while we are using it to update env in Exec.fs
+//in exec.fs... outcomefromprobability always return success..is it the reason why our reliability calculation is always 100
+// why two invokes in test.bpel are written as 1 invoke
 
     let mutable Annotation_Path = sprintf "%sAnnotation.xml" data_path
-    let mutable iterationCount = 10000
+    let mutable iterationCount = 500
+   // let mutable iterationCount = 10
     match argv.Length with
     | 0 -> ()
     | 1 ->
@@ -50,15 +29,15 @@ let main argv =
     doc.Load(BPEL_path)
 
     let test_analyzer = Analyzer.Analyzer(Probability.ProbabilityAnnotation.load Annotation_Path)
-    //Probability.Probability.path <- Annotation_Path
+
     let activity =
         let h,activityList = test_analyzer.TraverseNodes doc.ChildNodes (System.Collections.Generic.List<Analyzer.Link>() )
         let mainActivity =
             match activityList |> Seq.toList with 
             | [] -> lx_bpel.Nothing
-            | (name,a)::[] -> a
-            | l -> lx_bpel.Sequence (List.map snd l)
-        match h with
+            | (name,_,a)::[] -> a
+            | l -> lx_bpel.Sequence (List.map (fun (_,_,a) ->a) l)   //Creates a new collection whose elements are the results of applying the given function to each of the elements of the collection.
+        match h with                  //h is for fault handler
         | [] -> mainActivity
         | a::[] -> lx_bpel.Scope (mainActivity,a)
         | _ -> lx_bpel.Scope (mainActivity, h |> lx_bpel.Sequence)
@@ -68,7 +47,7 @@ let main argv =
 
     let samplesSeq =
         Seq.init iterationCount <| fun number ->
-            lx_bpel.Eval.Exec Map.empty activity
+            lx_bpel.Eval.Exec Map.empty activity   ///exec is called here for the first time
         |> Seq.cache
 
     Visualizer.show samplesSeq

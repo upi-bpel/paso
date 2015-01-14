@@ -35,7 +35,7 @@ type Activity =
 module Eval =
 
     let makeSequence x =
-        Seq.toList x |> Sequence
+        Seq.toList x |> Sequence   //Creates a list from the given collection.
 
     let rec PrintBoolExpr = function
         | Constant b -> if b then "True" else "False"
@@ -49,7 +49,7 @@ module Eval =
         | Throw -> "Throw"
         | Assign (s , v) -> sprintf "Assign(%s <- %s)" s (PrintBoolExpr v) 
         | Sequence  l ->
-            sprintf "Sequence(%A)" ( Seq.map PrintActivity l )
+            sprintf "Sequence(%A)" ( Seq.map PrintActivity l ) //Creates a new collection whose elements are the results of applying the given function to each of the elements of the collection
         | Scope  (ma,fh) -> sprintf "Scope(%s,handler:%s)"(PrintActivity ma) (PrintActivity fh)
         | IfThenElse  (guard,thenActivity,elseActivity) -> sprintf "If(%s,%s,%s)" (PrintBoolExpr guard) (PrintActivity thenActivity) (PrintActivity elseActivity) 
         | While  (guard,body) -> sprintf "While(%s,%s)" (PrintBoolExpr guard)  (PrintActivity body)
@@ -60,7 +60,7 @@ module Eval =
     
     let flip =
         let g =new System.Random()
-        fun v () -> g.NextDouble() < v
+        fun v () -> g.NextDouble() < v   //Assign True if g is less than v (i.e. Probability assign to condition)
         
     let Zero = 0.0,0.0:Cost
     let Both(c1:Cost,c2:Cost) =
@@ -73,7 +73,7 @@ module Eval =
         (p1 ), ( t1 + t2):Cost
 
     let All =
-        Seq.fold (fun a b -> Both(a,b)) Zero
+        Seq.fold (fun a b -> Both(a,b)) Zero   //Applies a function to each element of the collection
 
     let rec All2 = function
     | [] -> Zero
@@ -138,7 +138,7 @@ module Eval =
             [ for name,_,_ in activityList -> name]
             |> JoinOutcomesAndCosts activitiesOutcomes delayedCosts
         env,flowOutcome,flowCost
-    and Exec (env:Map<string,bool>) = function
+    and Exec (env:Map<string,bool>) = function             ////exec
     | Nothing -> env,Success,Zero
     | Throw -> env,Fault,Zero
     | Sequence ([]) -> env,Success,Zero
@@ -146,7 +146,7 @@ module Eval =
         let newEnv,outcome,cost = Exec env h
         if outcome = Success then
             let newerEnv,outcome, newCost = Exec newEnv (Sequence t)
-            newerEnv,outcome,Both(cost,Delay(newCost,cost))
+            newerEnv,outcome,Both(cost,Delay(newCost,cost))            //val for both and delay is calculated here           
         else
             newEnv,outcome,cost
     | Scope (activity,handler) ->
@@ -173,7 +173,7 @@ module Eval =
     | OpaqueAssign (name,prob) ->
         env.Add(name,flip prob ()),Success,Zero
     | Invoke (samplingFun) ->
-        let outcome,cost = samplingFun()
+        let outcome,cost = samplingFun() //possible error here since it always equal to success..never to fault
         env,outcome,cost
     | Flow (activities,links) ->
         // sort activities so that for each link its source is before its target
@@ -200,7 +200,9 @@ module Eval =
                         delayedCosts.Add(activityName,Delay(cost,dependenciesCosts)),
                         activitiesOutcomes.Add(activityName,outcome)
                 else
-                    env,Map.empty,Map.empty
+                    env,
+                    delayedCosts.Add(activityName,Delay(Zero,dependenciesCosts)),
+                    activitiesOutcomes.Add(activityName,dependenciesOutcome)
                 ) (env,Map.empty,Map.empty)
         let outcome,cost = allCostsOutcomes allActivitiesOutcomes allDelayedCosts (activities |> List.map (fun (a,_,_)->a))
         env,outcome,cost
