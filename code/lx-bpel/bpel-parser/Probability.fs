@@ -79,8 +79,8 @@ open System.Xml
 
 let parseOutcome = function
 | "success" -> lx_bpel.Success
-| "fault" -> lx_bpel.Success
-| "stuck" -> lx_bpel.Success
+| "fault" -> lx_bpel.Fault
+| "stuck" -> lx_bpel.Stuck
 
 type ProbabilityAnnotation () =
     member val conditions = Map.empty with get,set
@@ -93,40 +93,40 @@ type ProbabilityAnnotation () =
         let nameIs  name (node:XmlNode) =
             name = node.Name
         let s = seq{ for i in doc.ChildNodes -> i} |> Seq.toList
-        let conditions = List.filter (nameIs "condition") s
-        let endpoints = List.filter (nameIs "endpoint" ) s
-        p.conditions <- List.fold (fun map (node:XmlNode) ->
+        let conditions = List.filter (nameIs "condition") s  //Returns a new collection containing only the elements of the collection for which the given predicate returns true.
+        let endpoints = List.filter (nameIs "endpoint" ) s    //Returns a new collection containing only the elements of the collection for which the given predicate returns true.
+        p.conditions <- List.fold (fun map (node:XmlNode) ->  //Applies a function f to each element of the collection
             let name =
                 seq{ for i in node.ChildNodes -> i }
-                |> Seq.filter (nameIs "name")
-                |> Seq.toList
-                |> List.head
+                |> Seq.filter (nameIs "name")    //Returns a new collection containing only the elements of the collection for which the given predicate returns true.
+                |> Seq.toList                    //Creates a list from the given collection.
+                |> List.head                     //Returns the first element of the list.
                 |> (fun n -> n.InnerText)
             let probability =
                 seq{ for i in node.ChildNodes -> i }
-                |> Seq.filter (nameIs "value")
-                |> Seq.filter (fun n -> n.InnerText = "True")
-                |> Seq.toList
-                |> List.head
+                |> Seq.filter (nameIs "value")   //Returns a new collection containing only the elements of the collection for which the given predicate returns true.
+                |> Seq.filter (fun n -> n.InnerText = "True")  //Returns a new collection containing only the elements of the collection for which the given predicate returns true.
+                |> Seq.toList                    //Creates a list from the given collection.
+                |> List.head                      //Returns the first element of the list.
                 |> (fun n -> n.Attributes.["probability"].Value)
                 |> Double.Parse
-            Map.add name probability map        
-        ) Map.empty conditions
+            Map.add name probability map         //Returns a new map with the binding added to the given map.
+        ) Map.empty conditions                   //Returns the empty map.
         
-        p.endpoints <- List.fold (fun map (node:XmlNode) ->
+        p.endpoints <- List.fold (fun map (node:XmlNode) ->    //Applies a function f to each element of the collection
             let name =
                 let nodelist =
                     seq{ for i in node.ChildNodes -> i }
-                    |> Seq.filter (nameIs "name")
-                    |> Seq.toList
+                    |> Seq.filter (nameIs "name")      //Returns a new collection containing only the elements of the collection for which the given predicate returns true.
+                    |> Seq.toList                      //Creates a list from the given collection. 
                 match nodelist with
                 | [] -> ""
                 | h::t -> h.InnerText
             let partnerLink =
                 seq{ for i in node.ChildNodes -> i }
-                |> Seq.filter (nameIs "partnerLink")
-                |> Seq.toList
-                |> List.head
+                |> Seq.filter (nameIs "partnerLink")    //Returns a new collection containing only the elements of the collection for which the given predicate returns true.  
+                |> Seq.toList                           //Creates a list from the given collection. 
+                |> List.head                            //Returns the first element of the list.
                 |> (fun n -> n.InnerText)
             let events = 
                 seq{ 
@@ -135,28 +135,28 @@ type ProbabilityAnnotation () =
                             let outcome = n.Attributes.["outcome"].Value |> parseOutcome
                             let probability = n.Attributes.["probability"].Value |> Double.Parse
                             yield probability,(outcome,n)
-                    } |> Seq.toList
+                    } |> Seq.toList                      //Creates a list from the given collection.
             let samplingFunction =
                 events
                 |> List.map (fun (p,(o,c)) -> 
                     let cost =
                         seq{ for i in c.ChildNodes -> i }
-                        |> Seq.filter (nameIs "cost")
-                        |> Seq.toList
-                        |> List.head
+                        |> Seq.filter (nameIs "cost")    //Returns a new collection containing only the elements of the collection for which the given predicate returns true.  
+                        |> Seq.toList                    //Creates a list from the given collection. 
+                        |> List.head                     //Returns the first element of the list.
                         |> (fun n -> n.InnerText.Replace("$",""))
                         |> Double.Parse
                     let time =
                         seq{ for i in c.ChildNodes -> i }
-                        |> Seq.filter (nameIs "time")
-                        |> Seq.toList
-                        |> List.head
+                        |> Seq.filter (nameIs "time")    //Returns a new collection containing only the elements of the collection for which the given predicate returns true.  
+                        |> Seq.toList                    //Creates a list from the given collection. 
+                        |> List.head                     //Returns the first element of the list.
                         |> (fun n -> n.InnerText.Replace("sec"," "))
                         |> Double.Parse
                     p,(o,(cost,time))
                     )
                 |> lx_bpel.Eval.outcomeFromProbabilities
-            Map.add (name+"_pl_"+partnerLink) (events,samplingFunction) map        
+            Map.add (name+"_pl_"+partnerLink) (events,samplingFunction) map //Returns a new map with the binding added to the given map.      
         ) Map.empty endpoints 
 
         p
