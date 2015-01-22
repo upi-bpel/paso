@@ -377,22 +377,35 @@ type Analyzer (probabilityAnnotations:Probability.ProbabilityAnnotation) =
                 temp.Add (parentName,cond,scopeActivity)
             | "if" ->
                 let cond = x.TransverseNodesActivity node.ChildNodes linkList parentName
-                let probability =  probabilityAnnotations.conditions.[node.ChildNodes.[0].InnerText]
-                let h,thenL = x.TraverseNodes node.ChildNodes.[1].ChildNodes emptyList
+                let pchild = seq{ for x in node.ChildNodes -> x } |> Seq.find (fun x -> x.Name.ToLower() = "condition") 
+                let tchild = seq{ for x in node.ChildNodes -> x } |> Seq.find (fun x -> x.Name.ToLower() = "then") 
+                let echild = seq{ for x in node.ChildNodes -> x } |> Seq.tryFind (fun x -> x.Name.ToLower() = "else") 
+                let c =
+                    if probabilityAnnotations.conditions.ContainsKey(pchild.InnerText) then
+                        let probability =  probabilityAnnotations.conditions.[pchild.InnerText]
+                        let variableName = sprintf "Var%d" <| r.Next()
+                        (variableName,probability)
+                        |> OpaqueAssign
+                        |> tuple3 parentName cond
+                        |> temp.Add
+                        Variable variableName
+                    else
+                    x.ParseCondition(pchild.InnerText)
+
+                let h,thenL = x.TraverseNodes tchild.ChildNodes emptyList
                 handler <- List.append h handler
                 let thenA = if thenL.Count = 0 then Nothing else third thenL.[0]
-                let h,elseL = x.TraverseNodes node.ChildNodes.[2].ChildNodes emptyList
+                let h,elseL =
+                    match echild with
+                    | None -> List.empty,new System.Collections.Generic.List<string*lx_bpel.BoolExpr*lx_bpel.Activity>()
+                    | Some echild -> x.TraverseNodes echild.ChildNodes emptyList
                 handler <- List.append h handler
                 let elseA = if elseL.Count = 0 then Nothing else third elseL.[0]
-                let variableName = sprintf "Var%d" <| r.Next()
-                (variableName,probability)
-                |> OpaqueAssign
-                |> tuple3 parentName cond
-                |> temp.Add
-                (Variable variableName,thenA,elseA)
+                (c,thenA,elseA)
                 |> IfThenElse
                 |> tuple3 parentName cond
                 |> temp.Add
+
             | "while" ->
                 let cond = x.TransverseNodesActivity node.ChildNodes linkList parentName
 
