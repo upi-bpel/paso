@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<process
+    name="ShippingService"
+    targetNamespace="http://dsg.wiai.uniba.de/bpel-engine-comparison/activities/bpel/scopeVariables"
+    xmlns="http://docs.oasis-open.org/wsbpel/2.0/process/executable">
+    
+    <partnerLinks>
+	<partnerLink name="PartnerLink1"  	    partnerLinkType="Type"   	    partnerRole="PL1" />
+    </partnerLinks>
+
+	<variables>
+		<variable name="Ship_Individual"/>
+		<variable name="Item"/>
+	</variables>
+   
+	<sequence>
+		<receive></receive>
+		<assign>
+			<copy>
+				<from>Ship_Individual eq true</from>
+				<to variable="Ship_Individual" />
+			</copy>
+		</assign>		
+		<if>
+			<condition>$Ship_Individual</condition>
+		<then>
+			<assign>
+				<copy>
+					<from>Item &lt; Total_Items</from>
+					<to variable="Condition" />
+				</copy>
+			</assign>
+			<while>
+				<condition>$Condition</condition>
+				<then>
+					<sequence>
+						<invoke name ="PL1_name1"	partnerLink="ShipItem"	inputVariable="Item"></invoke>
+						<empty/>
+					</sequence>
+				</then>
+			</while>
+		</then>
+		<else>
+			<invoke name ="PL1_name1"	partnerLink="ShipItem"	inputVariable="Total_Items"></invoke>
+		</else>
+		</if>
+		<reply name="ReplyShipmentComplete"/>
+	</sequence>
+
+</process>

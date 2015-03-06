@@ -1,0 +1,26 @@
+<probabilities>
+	<condition>
+		<name>true</name>
+		<value probability="1.0" >True</value>
+	</condition>
+	<condition>
+		<name>false</name>
+		<value probability="0.0" >True</value>
+	</condition>
+	<condition>
+		<name>Ship_Individual eq true</name>
+		<value probability="0.7" >True</value>
+	</condition>
+	<condition>
+		<name>Item &lt; Total_Items</name>
+		<value probability="0.8" >True</value>
+	</condition>
+	<endpoint>
+	    <name>PL1_name1</name>
+		<partnerLink>ShipItem</partnerLink>
+		<event outcome="success" probability="1.0">
+			<cost> 0.5$</cost>
+			<time> 2 sec</time>
+		</event>
+	</endpoint>
+</probabilities>

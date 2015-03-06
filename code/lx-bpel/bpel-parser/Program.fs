@@ -1,15 +1,21 @@
-﻿
+﻿(*
+ *
+ * This code is provided for evaluation of the algorithm presented in the paper:
+ *
+ * Bartoloni, Leonardo, Antonio Brogi, and Ahmad Ibrahim. 
+ * "Probabilistic Prediction of the QoS of Service Orchestrations: A Truly Compositional Approach."
+ * In Service-Oriented Computing, pp. 378-385. Springer Berlin Heidelberg, 2014.
+ *
+ *)
+
 [<EntryPoint>]
 let main argv =
   
-    let data_path = @"D:\Dropbox\Code\ConsoleApplication1\BPEL_Examples\List\loanExample_Paper\"
-    let mutable BPEL_path = sprintf "%sloan.bpel" data_path    
+    let data_path = @"..\..\..\..\..\BPEL_Examples\ShippingService_Paper\"
+    let mutable BPEL_path = sprintf "%sShippingService.bpel" data_path    
+    //let data_path = @"..\..\..\..\..\BPEL_Examples\loanExample_Paper\"
+    //let mutable BPEL_path = sprintf "%sloan.bpel" data_path
  
-
-//** to ask from leonardo: we are assigning Nothing to assign in analyzer.fs while we are using it to update env in Exec.fs
-//in exec.fs... outcomefromprobability always return success..is it the reason why our reliability calculation is always 100
-// why two invokes in test.bpel are written as 1 invoke
-
     let mutable Annotation_Path = sprintf "%sAnnotation.xml" data_path
     let mutable iterationCount = 500
    // let mutable iterationCount = 10

@@ -1,0 +1,112 @@
+<process name="loanApprovalProcess" 
+         targetNamespace="http://acme.com/loanprocessing" 
+         xmlns="http://schemas.xmlsoap.org/ws/2003/03/business-process/"
+         xmlns:lns="http://loans.org/wsdl/loan-approval"
+         suppressJoinFailure="yes">
+
+   <partnerLinks>
+      <partnerLink name="approver" 
+               partnerLinkType="lns:loanApprovalLinkType"
+               partnerRole="approver"/>
+      <partnerLink name="assessor" 
+               partnerLinkType="lns:riskAssessmentLinkType"
+               partnerRole="assessor"/>
+   </partnerLinks>
+
+   <variables>
+     <variable name="bigAmount"/>
+     <variable name="highRisk"/>
+   </variables>
+                                                            
+
+	<flow>
+		<links>
+			<link name="receiveToAssess"/>
+			<link name="receiveToApproval"/>
+			<link name="assessToApproval"/>
+			<link name="setMessageToReply"/>
+			<link name="approvalToReply"/>
+		</links>
+		<sequence>
+			<source linkName="receiveToAssess"  />
+			<source linkName="receiveToApproval"/>
+			<receive></receive>
+			<assign>
+				<copy>
+					<from>false</from>
+					<to variable="highRisk" />
+				</copy>
+			</assign>
+			<assign>
+				<copy>
+					<from >amount&gt;10000</from>
+					<to variable="bigAmount" />
+				</copy>
+			</assign>
+		</sequence>
+		<sequence>
+			<sources>
+				<source linkName="assessToApproval" 	/>
+				<source linkName="setMessageToReply"    />
+			</sources>
+			<targets>
+				<target linkName="receiveToAssess"/>
+				<joinCondition>not $bigAmount</joinCondition>
+			</targets>
+			<invoke name="riskAssessor" partnerLink="assessor"> </invoke>
+			<assign>
+				<copy>
+					<from>riskAssessment&gt;10</from>
+					<to variable="highRisk" />
+				</copy>
+			</assign>							
+		</sequence>	
+
+		<sequence>	
+			<sources>
+				<source linkName="approvalToReply" />
+			</sources>
+			<targets>
+				<target linkName="receiveToApproval" />
+				<target linkName="assessToApproval"/>
+				<joinCondition>$highRisk or $bigAmount</joinCondition>
+			</targets>
+			<assign>
+				<copy>
+					<from>true</from>
+					<to variable="Condition" />
+				</copy>
+			</assign>
+			<while>
+				<condition>$Condition</condition>
+				<then>
+					<scope>
+						<faultHandlers>
+							<catch faultName="loanProcessFault">
+								<assign>
+									<copy>
+										<from>true</from>
+										<to variable="Condition" />
+									</copy>
+								</assign>						
+							</catch>
+						</faultHandlers>			
+						<sequence>
+							<invoke name="loanApprover" partnerLink="approver" />
+							<assign>
+								<copy>
+									<from>false</from>
+									<to variable="Condition" />
+								</copy>
+							</assign>	
+						</sequence>
+					</scope>
+				</then>
+			</while>
+		</sequence>
+		<reply>
+			<target linkName="setMessageToReply"/>
+			<target linkName="approvalToReply"/>
+		</reply>
+	</flow>
+</process>

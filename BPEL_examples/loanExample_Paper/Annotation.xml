@@ -1,0 +1,55 @@
+<probabilities>
+	<condition>
+		<name>true</name>
+		<value probability="1.0" >True</value>
+	</condition>
+	<condition>
+		<name>false</name>
+		<value probability="0.0" >True</value>
+	</condition>
+	<condition>
+		<name>amount&gt;10000</name>
+		<value probability="0.5" >True</value>
+	</condition>
+
+	<condition>
+		<name>riskAssessment&gt;10</name>
+		<value probability="0.6" >True</value>
+	</condition>
+	<endpoint>
+	    <name>riskAssessor</name>
+		<partnerLink>assessor</partnerLink>
+		<event outcome="success" probability="0.79">
+			<cost> 0.1$</cost>
+			<time> 1 sec</time>
+		</event>
+		<event outcome="success" probability="0.20">
+			<cost> 0.1$</cost>
+			<time> 2 sec</time>
+		</event>
+		<event outcome="stuck" probability="0.01">
+			<cost> 0.1$</cost>
+			<time> 0 sec</time>
+		</event>
+	</endpoint>
+		<endpoint>
+	    <name>loanApprover</name>
+		<partnerLink>approver</partnerLink>
+		<event outcome="success" probability="0.30">
+			<cost> 5$</cost>
+			<time> 600 sec</time>
+		</event>
+		<event outcome="success" probability="0.35">
+			<cost> 10$</cost>
+			<time> 1200 sec</time>
+		</event>
+		<event outcome="success" probability="0.20">
+			<cost> 15$</cost>
+			<time> 1800 sec</time>
+		</event>
+		<event outcome="fault" probability="0.15">
+			<cost> 0$</cost>
+			<time> 300 sec</time>
+		</event>
+	</endpoint>
+</probabilities>
