@@ -10,12 +10,18 @@
 
 [<EntryPoint>]
 let main argv =
-  
+
     let data_path = @"..\..\..\..\..\BPEL_Examples\ShippingService_Paper\"
     let mutable BPEL_path = sprintf "%sShippingService.bpel" data_path    
     //let data_path = @"..\..\..\..\..\BPEL_Examples\loanExample_Paper\"
     //let mutable BPEL_path = sprintf "%sloan.bpel" data_path
- 
+
+    let data_path = @"D:\Dropbox\Code\ConsoleApplication1\BPEL_Examples\List\ShippingService_Paper\"
+//    let mutable BPEL_path = sprintf "%sloan.bpel" data_path    
+    
+    let mutable BPEL_path = sprintf "%sShippingService.bpel" data_path    
+
+
     let mutable Annotation_Path = sprintf "%sAnnotation.xml" data_path
     let mutable iterationCount = 500
    // let mutable iterationCount = 10

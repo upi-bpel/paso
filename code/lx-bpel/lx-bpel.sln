@@ -1,6 +1,8 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2012
+# Visual Studio 2013
+VisualStudioVersion = 12.0.30501.0
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "lx-bpel", "lx-bpel\lx-bpel.fsproj", "{A86BE187-5B4B-4563-844A-264768674862}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "bpel-parser", "bpel-parser\bpel-parser.fsproj", "{6F267A10-BEAF-4355-ABFF-3BD9D2335F60}"
