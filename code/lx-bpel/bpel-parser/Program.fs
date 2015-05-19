@@ -56,6 +56,17 @@ let main argv =
             lx_bpel.Eval.Exec Map.empty activity   ///exec is called here for the first time
         |> Seq.cache
 
+
+    let probability e =
+         Seq.averageBy (e>>function true ->1.0 |false -> 0.0) samplesSeq
+
+    let timeLessThan5sec (env,outcome,(price,time)) =
+        time < 5.0
+
+    let probabilityTimeLessThan5sec = probability timeLessThan5sec
+
+    printfn "probabilityTimeLessThan5sec = %f" probabilityTimeLessThan5sec
+
     Visualizer.show samplesSeq
 //    let costExpectation iterations workflow =
 //        let mutable totalTime,totalPrice,totalSuccesses = 0.0,0.0,0.0

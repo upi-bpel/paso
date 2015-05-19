@@ -92,6 +92,8 @@ let show samplesSeq =
     let allGraphs = Chart.Columns ([pie;Chart.Rows [histogramPrice;histogramTime]])
     //let control = new ChartTypes.ChartControl(pie)
     let form = allGraphs.ShowChart() // new System.Windows.Forms.Form()
+    //let form = histogramTime.ShowChart()
     //form.Controls.Add(control)
-    form.WindowState <- System.Windows.Forms.FormWindowState.Maximized
+    //form.WindowState <- System.Windows.Forms.FormWindowState.Maximized
+    form.TopMost <- false
     System.Windows.Forms.Application.Run(form)
