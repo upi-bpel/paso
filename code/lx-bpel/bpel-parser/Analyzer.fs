@@ -454,10 +454,14 @@ type Analyzer (probabilityAnnotations:Probability.ProbabilityAnnotation) =
                 let varname = node.ChildNodes.[1].Attributes.["variable"].Value
                 let probability =  probabilityAnnotations.conditions.[expression]
                 OpaqueAssign (varname,probability) |> tuple3 parentName cond |> temp.Add
-             | "empty" | "receive" | "reply" -> 
+            | "empty" | "receive" | "reply" -> 
                 let cond = x.TransverseNodesActivity node.ChildNodes linkList parentName
 
                 temp.Add (parentName,cond,Nothing)
+            | "throw" -> 
+                let cond = x.TransverseNodesActivity node.ChildNodes linkList parentName
+
+                temp.Add (parentName,cond,Throw)
             | "link" -> ()
             | "flow" -> 
                 let cond = x.TransverseNodesActivity node.ChildNodes linkList parentName
