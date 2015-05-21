@@ -53,7 +53,7 @@ let main argv =
 
     let samplesSeq =
         Seq.init iterationCount <| fun number ->
-            lx_bpel.Eval.Exec Map.empty activity   ///exec is called here for the first time
+            lx_bpel.Eval.Exec Map.empty activity ()   ///exec is called here for the first time
         |> Seq.cache
 
 

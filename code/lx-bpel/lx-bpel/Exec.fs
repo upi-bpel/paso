@@ -2,6 +2,17 @@
 module utility =
     let invtuple2 a b = (b,a)
 
+type TMonad<'V> = unit -> 'V
+type DMonad () =
+    let g = new System.Random()
+    member x.Return(v:'T): TMonad<'T> = fun () -> v
+    member x.ReturnFrom(v:TMonad<'T>) = v
+    member x.Bind(v:TMonad<'T>,f:'T->TMonad<'U>) :TMonad<'U> = fun () ->
+         f (v ()) ()
+        
+
+    member x.flip (v): TMonad<bool> = fun () ->
+        g.NextDouble() < v   //Assign True if g is less than v (i.e. Probability assign to condition)
 
 type BoolExpr =
     | Constant of bool
@@ -33,6 +44,7 @@ type Activity =
 
 
 module Eval =
+    let dist = new DMonad()
 
     let makeSequence x =
         Seq.toList x |> Sequence   //Creates a list from the given collection.
@@ -57,11 +69,7 @@ module Eval =
         | Invoke  func -> sprintf "Invoke(%+A)" func
         | Flow (a1,a2)-> sprintf "Flow(\n\t%+A\n\t%+A)" a1 a2 
 
-    
-    let flip =
-        let g =new System.Random()
-        fun v () -> g.NextDouble() < v   //Assign True if g is less than v (i.e. Probability assign to condition)
-        
+
     let Zero = 0.0,0.0:Cost
     let Both(c1:Cost,c2:Cost) =
         let p1,t1 = c1
@@ -108,54 +116,69 @@ module Eval =
             not e
         | Variable (name) -> env.[name]
 
-    let rec FlowMatch (env:Map<string,bool>) activityList linkList =
-        let linkTargetIs t (_,_,_,target) = (target = t)
-        let linkSourceIs s (_,_,source,_) = (source = s)
+    let rec FlowMatch (env:Map<string,bool>) activityList linkList :TMonad<Map<string,bool>*Outcome*Cost> =
         let JoinOutcomesAndCosts outcomes costs names =
             let o,c =
                 [for n in names -> Map.find n outcomes, Map.find n costs] |> List.unzip
             (AllOutcome o,All c)
-        let mutable env,activitiesOutcomes,delayedCosts =
-            env,Map.empty,Map.empty
-        for activityName,joinCondition,innerActivity in activityList do
-            let incomingLinks = List.filter (linkTargetIs activityName) linkList
-            let outgoingLinks = List.filter (linkSourceIs activityName) linkList
-            let dependencies  = [ for _,_,source,_ in incomingLinks -> source ]
-            let dependenciesOutcome,dependenciesCost =
-                JoinOutcomesAndCosts activitiesOutcomes delayedCosts dependencies
-            let isExecuted = (dependenciesOutcome = Success) && boolExprEval env joinCondition
-            let innerModifiedEnv,innerOutcome,innerCost =
-                if isExecuted then
-                    Exec env innerActivity
-                else
-                    env,dependenciesOutcome,Zero
-            env <- Seq.fold (fun e (name,transitionCondition,_,_) ->
-                Map.add name (boolExprEval innerModifiedEnv transitionCondition) e )
-                innerModifiedEnv outgoingLinks
-            activitiesOutcomes <- Map.add activityName innerOutcome activitiesOutcomes
-            delayedCosts <- Map.add activityName (Delay(innerCost,dependenciesCost)) delayedCosts
-        let flowOutcome,flowCost =
-            [ for name,_,_ in activityList -> name]
-            |> JoinOutcomesAndCosts activitiesOutcomes delayedCosts
-        env,flowOutcome,flowCost
-    and Exec (env:Map<string,bool>) = function             ////exec
-    | Nothing -> env,Success,Zero
-    | Throw -> env,Fault,Zero
-    | Sequence ([]) -> env,Success,Zero
+        let linkTargetIs t (_,_,_,target) = (target = t)
+        let linkSourceIs s (_,_,source,_) = (source = s)
+        let rec loopp1 (env,activitiesOutcomes,delayedCosts) alist =
+            match alist with
+            | [] -> dist.Return (env,activitiesOutcomes,delayedCosts)
+            | (activityName,joinCondition,innerActivity)::t ->
+                let incomingLinks = List.filter (linkTargetIs activityName) linkList
+
+                let dependencies  = [ for _,_,source,_ in incomingLinks -> source ]
+                let dependenciesOutcome,dependenciesCost =
+                    JoinOutcomesAndCosts activitiesOutcomes delayedCosts dependencies
+                let isExecuted = (dependenciesOutcome = Success) && boolExprEval env joinCondition
+                dist {
+                    let! parms =
+                        if isExecuted then
+                            Exec env innerActivity
+                        else
+                            dist.Return(env,dependenciesOutcome,Zero)
+                    return! cont dependenciesCost activityName (env,activitiesOutcomes,delayedCosts) parms t
+                }
+        and cont dependenciesCost activityName (env,activitiesOutcomes,delayedCosts) (innerModifiedEnv,innerOutcome,innerCost) alist =
+                let outgoingLinks = List.filter (linkSourceIs activityName) linkList
+                let env =
+                    Seq.fold (fun e (name,transitionCondition,_,_) ->
+                        Map.add name (boolExprEval innerModifiedEnv transitionCondition) e )
+                        innerModifiedEnv outgoingLinks
+                let activitiesOutcomes = Map.add activityName innerOutcome activitiesOutcomes
+                let delayedCosts = Map.add activityName (Delay(innerCost,dependenciesCost)) delayedCosts
+                loopp1 (env,activitiesOutcomes,delayedCosts) alist
+        dist {
+            let! newEnv,activitiesOutcomes,delayedCosts = loopp1 (env,Map.empty,Map.empty) activityList
+            let flowOutcome,flowCost =
+                [ for name,_,_ in activityList -> name]
+                |> JoinOutcomesAndCosts activitiesOutcomes delayedCosts
+            return newEnv,flowOutcome,flowCost
+        }
+    and Exec (env:Map<string,bool>) : Activity -> unit -> _ = function             ////exec
+    | Nothing -> dist.Return(env,Success,Zero)
+    | Throw -> dist.Return(env,Fault,Zero)
+    | Sequence ([]) -> dist.Return(env,Success,Zero)
     | Sequence (h::t) ->
-        let newEnv,outcome,cost = Exec env h
-        if outcome = Success then
-            let newerEnv,outcome, newCost = Exec newEnv (Sequence t)
-            newerEnv,outcome,Both(cost,Delay(newCost,cost))            //val for both and delay is calculated here           
-        else
-            newEnv,outcome,cost
+        dist {
+            let! newEnv,outcome,cost = Exec env h
+            if outcome = Success then
+                let! newerEnv,outcome, newCost = Exec newEnv (Sequence t)
+                return newerEnv,outcome,Both(cost,Delay(newCost,cost))            //val for both and delay is calculated here           
+            else
+                return newEnv,outcome,cost
+        }
     | Scope (activity,handler) ->
-        let newEnv,outcome,cost = Exec env activity
-        if outcome = Fault then
-            let newerEnv,outcome, newCost = Exec newEnv handler
-            newerEnv,outcome,Both(cost,Delay(newCost,cost))
-        else
-            newEnv,outcome,cost
+        dist {
+            let! newEnv,outcome,cost = Exec env activity
+            if outcome = Fault then
+                let! newerEnv,outcome, newCost = Exec newEnv handler
+                return newerEnv,outcome,Both(cost,Delay(newCost,cost))
+            else
+                return newEnv,outcome,cost
+        }
     | IfThenElse(guard,thenActivity,elseActivity) ->
         let guardValue = boolExprEval env guard
         if guardValue then
@@ -167,14 +190,20 @@ module Eval =
         if guardValue then
             Exec env (Sequence ([body;While(guard,body)]))
         else
-            env,Success,Zero
+            dist.Return(env,Success,Zero)
     | Assign (name,expr) ->
-        env.Add(name,boolExprEval env expr),Success,Zero
+        dist.Return (env.Add(name,boolExprEval env expr),Success,Zero)
     | OpaqueAssign (name,prob) ->
-        env.Add(name,flip prob ()),Success,Zero
-    | Invoke (samplingFun) ->
-        let outcome,cost = samplingFun() //possible error here since it always equal to success..never to fault
-        env,outcome,cost
+        let p = dist.flip prob
+        dist {
+            let! p = p
+            return env.Add(name,p),Success,Zero
+        }
+    | Invoke (endpointDist) ->
+        dist {
+            let! outcome,cost = endpointDist
+            return env,outcome,cost
+        }
     | Flow (activities,links) ->
         // sort activities so that for each link its source is before its target
         //let activities = topoSort activities
@@ -187,27 +216,36 @@ module Eval =
                                 | _ -> Stuck
                             o,Both(c,(delayedCosts.[n]))
                             ) (Success,Zero)
-        let env,allDelayedCosts,allActivitiesOutcomes =
-            activities |> Seq.fold (fun (env,(delayedCosts:(Map<string,Cost>)),(activitiesOutcomes:Map<string,Outcome>)) (activityName,joinCondition,innerActivity) ->
-                let dependencies = [for l in links do let _,_, source,target = l in if target = activityName then yield source]
-                let dependenciesOutcome,dependenciesCosts =
-                    allCostsOutcomes activitiesOutcomes delayedCosts dependencies 
-                let outgoingLinks = [for l in links do let name,condition, source,_ = l in if source = name then yield name,condition]
-                if dependenciesOutcome = Success && boolExprEval env joinCondition then
-                    let env,outcome,cost = Exec env innerActivity
-                    outgoingLinks |>
-                    (Seq.fold (fun env (name,transCond) -> env.Add(name,boolExprEval env transCond)) env),
-                        delayedCosts.Add(activityName,Delay(cost,dependenciesCosts)),
-                        activitiesOutcomes.Add(activityName,outcome)
-                else
-                    env,
-                    delayedCosts.Add(activityName,Delay(Zero,dependenciesCosts)),
-                    activitiesOutcomes.Add(activityName,dependenciesOutcome)
-                ) (env,Map.empty,Map.empty)
-        let outcome,cost = allCostsOutcomes allActivitiesOutcomes allDelayedCosts (activities |> List.map (fun (a,_,_)->a))
-        env,outcome,cost
 
-    let outcomeFromProbabilities =
+        dist {
+            let folder accum (activityName,joinCondition,innerActivity) = 
+                dist {
+                    let! (env,(delayedCosts:(Map<string,Cost>)),(activitiesOutcomes:Map<string,Outcome>)) = accum
+                    let dependencies = [for l in links do let _,_, source,target = l in if target = activityName then yield source]
+                    let dependenciesOutcome,dependenciesCosts =
+                        allCostsOutcomes activitiesOutcomes delayedCosts dependencies 
+                    let outgoingLinks = [for l in links do let name,condition, source,_ = l in if source = name then yield name,condition]
+                    if dependenciesOutcome = Success && boolExprEval env joinCondition then
+                        let! env,outcome,cost = Exec env innerActivity
+                        return
+                            outgoingLinks |> (Seq.fold (fun (env:Map<string,bool>) (name,transCond) -> env.Add(name,boolExprEval env transCond) ) env),
+                            delayedCosts.Add(activityName,Delay(cost,dependenciesCosts)),
+                            activitiesOutcomes.Add(activityName,outcome)
+                       
+                    else
+                        return 
+                            env,
+                            delayedCosts.Add(activityName,Delay(Zero,dependenciesCosts)),
+                            activitiesOutcomes.Add(activityName,dependenciesOutcome)
+                }
+            let startState = dist.Return ((env,Map.empty,Map.empty))
+            let! env,allDelayedCosts,allActivitiesOutcomes = Seq.fold folder startState activities
+
+            let outcome,cost = allCostsOutcomes allActivitiesOutcomes allDelayedCosts (activities |> List.map (fun (a,_,_)->a))
+            return env,outcome,cost
+        }
+
+    let outcomeFromProbabilities : (_ -> TMonad<Outcome*Cost>) =
         let g = new System.Random()
         fun (plist:(float*(Outcome*Cost)) list) ->
             let norm = 1.0/(List.sumBy fst plist)
@@ -262,24 +300,34 @@ module Eval =
 
         nodemark |> Map.fold (fun t name (guard,activity,mark) -> visit t name) []
         
-    let riskSamplingFun () =
-        if flip 0.01 () then
-            Stuck,(0.1,0.0)
-        else if flip (0.69/0.99) ()then
-            Success,(0.1,1.0)
-        else
-            Success,(0.1,2.0)
-
-    let approvalSamplingFun() =
-        if flip 0.15 ()then
-            Fault,(0.0,300.0)
-        else if flip (0.3/0.85) () then
-            Success,(5.0,600.0)
-        else if flip (0.35/0.55) () then
-            Success,(10.0,1200.0)
-        else
-            Success,(15.0,1800.0)
-            
+    let riskSamplingFun :TMonad<Outcome*Cost> =
+        dist {
+            let! f = dist.flip 0.01
+            if f then
+                return Stuck,(0.1,0.0)
+            else
+                let! f = dist.flip (0.69/0.99) 
+                if f then
+                    return Success,(0.1,1.0)
+                else
+                    return Success,(0.1,2.0)
+        }
+    let approvalSamplingFun =
+        dist {
+            let! f = dist.flip 0.15
+            if f then
+                return Fault,(0.0,300.0)
+            else
+                let! f = dist.flip (0.3/0.85)
+                if f then
+                    return Success,(5.0,600.0)
+                else
+                let! f = dist.flip (0.35/0.55)
+                if f then
+                    return Success,(10.0,1200.0)
+                else
+                    return Success,(15.0,1800.0)
+        }
     let receiveBlock = OpaqueAssign ("bigAmount",0.5)
     let riskAssessBlock = IfThenElse(Variable "bigAmount",Assign("highRisk",Constant false),Sequence([Invoke(riskSamplingFun);OpaqueAssign("highRisk",0.6)]))
     let approvalBlock = 
