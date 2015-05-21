@@ -104,6 +104,7 @@ type Analyzer (probabilityAnnotations:Probability.ProbabilityAnnotation) =
             | TkNot::tail ->
                 let e,t = parser tail
                 binayOperatorParser (lx_bpel.BoolExpr.Not e) t
+            | _ -> failwith "left operand missing"
         and binayOperatorParser lhs tkns =
             match tkns with
             | TkAnd::tail ->

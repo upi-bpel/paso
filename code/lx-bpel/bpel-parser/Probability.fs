@@ -81,7 +81,7 @@ let parseOutcome = function
 | "success" -> lx_bpel.Success
 | "fault" -> lx_bpel.Fault
 | "stuck" -> lx_bpel.Stuck
-
+| x -> failwithf "outcome keyword not recognized: %s" x
 type ProbabilityAnnotation () =
     member val conditions = Map.empty with get,set
     member val endpoints = Map.empty with get,set
