@@ -1,0 +1,131 @@
+<process name="storageProcess" 
+         targetNamespace="http://acme.com/loanprocessing" 
+         xmlns="http://schemas.xmlsoap.org/ws/2003/03/business-process/"
+         xmlns:lns="http://loans.org/wsdl/loan-approval"
+         suppressJoinFailure="yes">
+
+   <partnerLinks>
+      <partnerLink name="st1store" 
+               partnerLinkType="lns:storageType"
+               partnerRole="store"/>
+      <partnerLink name="st2store" 
+               partnerLinkType="lns:storageType"
+               partnerRole="store"/>			   
+      <partnerLink name="st1retrieve" 
+               partnerLinkType="lns:retrieveType"
+               partnerRole="retrieve"/>
+      <partnerLink name="st2retrieve" 
+               partnerLinkType="lns:retrieveType"
+               partnerRole="retrieve"/>
+   </partnerLinks>
+   
+
+   <variables>
+     <variable name="storeData"/>
+   </variables>
+
+
+	<flow>
+		<links>
+			<link name="linkstoreData"/>
+			<link name="linkretrieveData"/>
+			<link name="st1ok"/>
+			<link name="st2ok"/>
+		</links>
+			
+		<sequence>
+			<sources>
+				<source linkName="linkstoreData"/>
+				<source linkName="linkretrieveData"/>
+			</sources>
+			<receive></receive>
+			<assign>
+				<copy>
+					<from>store</from>
+					<to variable="storeData" />
+				</copy>
+			</assign>
+		</sequence>
+		
+		
+		
+		<scope>
+			<targets>
+				<target linkName="linkstoreData" />
+				<joinCondition>$storeData</joinCondition>
+			</targets>		
+			<faultHandlers>
+				<catch faultName="Fault">
+								<sequence>
+									<reply>	</reply>										
+									<throw></throw>
+								</sequence>
+				</catch>
+			</faultHandlers>			
+			<flow>
+				<scope>
+					<faultHandlers>
+						<catch faultName="Fault">
+								<sequence>
+									<invoke name="wait" partnerLink="wait"></invoke>
+									<invoke name="ST1" partnerLink="st1store"></invoke>
+								</sequence>							
+						</catch>
+					</faultHandlers>			
+
+					<sources>
+						<source linkName="st1ok"/>
+					</sources>
+					<invoke name="ST1" partnerLink="st1store"></invoke>
+				</scope>
+				<scope>
+					<faultHandlers>
+						<catch faultName="Fault">
+								<sequence>
+									<invoke name="wait" partnerLink="wait"></invoke>
+									<invoke name="ST2" partnerLink="st2store"></invoke>
+								</sequence>							
+						</catch>
+					</faultHandlers>
+					<sources>
+						<source linkName="st2ok"/>
+					</sources>
+					<invoke name="ST2" partnerLink="st2store"></invoke>
+				</scope>
+				<reply>
+					<target linkName="st1ok"/>
+					<target linkName="st2ok"/>
+				</reply>
+			</flow>
+		</scope>	
+		
+		
+		<scope>
+			<targets>
+				<target linkName="linkretrieveData" />
+				<joinCondition>not $storeData</joinCondition>
+			</targets>		
+			<faultHandlers>
+				<catch faultName="Fault">
+					<scope>	
+						<faultHandlers>
+							<catch faultName="Fault_inner">
+								
+								<sequence>
+									<reply>	</reply>										
+									<throw></throw>
+								</sequence>
+								
+							</catch>
+						</faultHandlers>
+						<invoke name="ST2" partnerLink="st2retrieve"></invoke>						
+					</scope>							
+				</catch>
+			</faultHandlers>
+			<sequence>
+				<invoke name="ST1" partnerLink="st1retrieve"></invoke>
+				<reply>	</reply>										
+			</sequence>
+		</scope>
+	</flow>
+</process>

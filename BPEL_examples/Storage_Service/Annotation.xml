@@ -1,0 +1,108 @@
+<probabilities>
+	<condition>
+		<name>store</name>
+		<value probability="0.4" >True</value>
+	</condition>
+	
+	<endpoint>
+	    <name>wait</name>
+		<partnerLink>wait</partnerLink>
+		<event outcome="success" probability="0.2">
+			<cost> 0.0$</cost>
+			<time> 1 sec</time>
+		</event>
+		<event outcome="success" probability="0.2">
+			<cost> 0.0$</cost>
+			<time> 2 sec</time>
+		</event>
+		<event outcome="success" probability="0.2">
+			<cost> 0.0$</cost>
+			<time> 3 sec</time>
+		</event>
+		<event outcome="success" probability="0.2">
+			<cost> 0.0$</cost>
+			<time> 4 sec</time>
+		</event>
+		<event outcome="success" probability="0.2">
+			<cost> 0.0$</cost>
+			<time> 5 sec</time>
+		</event>
+		<event outcome="success" probability="0.2">
+			<cost> 0.0$</cost>
+			<time> 0 sec</time>
+		</event>
+	</endpoint>
+	
+	<endpoint>
+	    <name>ST1</name>
+		<partnerLink>st1store</partnerLink>
+		<event outcome="success" probability="0.99">
+			<cost> 0.03$</cost>
+			<time> 1 sec</time>
+		</event>
+		<event outcome="fault" probability="0.01">
+			<cost> 0$</cost>
+			<time> 2 sec</time>
+		</event>
+	</endpoint>
+	<endpoint>
+	    <name>ST2</name>
+		<partnerLink>st2store</partnerLink>
+		<event outcome="success" probability="0.90">
+			<cost> 0.1$</cost>
+			<time> 1 sec</time>
+		</event>
+		<event outcome="fault" probability="0.10">
+			<cost> 0$</cost>
+			<time> 2 sec</time>
+		</event>
+	</endpoint>
+	<endpoint>
+	    <name>ST3</name>
+		<partnerLink>st3store</partnerLink>
+		<event outcome="success" probability="0.90">
+			<cost> 0.1$</cost>
+			<time> 1 sec</time>
+		</event>
+		<event outcome="fault" probability="0.10">
+			<cost> 0$</cost>
+			<time> 2 sec</time>
+		</event>
+	</endpoint>	
+	<endpoint>
+	    <name>ST1</name>
+		<partnerLink>st1retrieve</partnerLink>
+		<event outcome="success" probability="0.99">
+			<cost> 0.03$</cost>
+			<time> 1 sec</time>
+		</event>
+		<event outcome="fault" probability="0.01">
+			<cost> 0$</cost>
+			<time> 2 sec</time>
+		</event>
+	</endpoint>
+	<endpoint>
+	    <name>ST2</name>
+		<partnerLink>st2retrieve</partnerLink>
+		<event outcome="success" probability="0.90">
+			<cost> 0.02$</cost>
+			<time> 1 sec</time>
+		</event>
+		<event outcome="fault" probability="0.10">
+			<cost> 0$</cost>
+			<time> 2 sec</time>
+		</event>
+	</endpoint>
+	<endpoint>
+	    <name>ST3</name>
+		<partnerLink>st3retrieve</partnerLink>
+		<event outcome="success" probability="0.90">
+			<cost> 0.02$</cost>
+			<time> 1 sec</time>
+		</event>
+		<event outcome="fault" probability="0.10">
+			<cost> 0$</cost>
+			<time> 2 sec</time>
+		</event>
+	</endpoint>	
+</probabilities>
