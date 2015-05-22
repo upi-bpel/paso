@@ -2,17 +2,19 @@
 module utility =
     let invtuple2 a b = (b,a)
 
-type TMonad<'V> = unit -> 'V
-type DMonad () =
-    let g = new System.Random()
-    member x.Return(v:'T): TMonad<'T> = fun () -> v
-    member x.ReturnFrom(v:TMonad<'T>) = v
-    member x.Bind(v:TMonad<'T>,f:'T->TMonad<'U>) :TMonad<'U> = fun () ->
-         f (v ()) ()
-        
-
-    member x.flip (v): TMonad<bool> = fun () ->
-        g.NextDouble() < v   //Assign True if g is less than v (i.e. Probability assign to condition)
+//type TMonad<'V> = unit -> 'V
+//type DMonad () =
+//    let g = new System.Random()
+//    member x.Return(v:'T): TMonad<'T> = fun () -> v
+//    member x.ReturnFrom(v:TMonad<'T>) = v
+//    member x.Bind(v:TMonad<'T>,f:'T->TMonad<'U>) :TMonad<'U> = fun () ->
+//         f (v ()) ()
+//        
+//
+//    member x.flip (v): TMonad<bool> = fun () ->
+//        g.NextDouble() < v   //Assign True if g is less than v (i.e. Probability assign to condition)
+type TMonad<'V> = Integration.D<'V>
+type DMonad = Integration.IntegratorBuilder
 
 type BoolExpr =
     | Constant of bool
@@ -38,13 +40,13 @@ type Activity =
     | IfThenElse of BoolExpr * Activity * Activity
     | While of BoolExpr * Activity
     | OpaqueAssign of string*float
-    | Invoke of (unit -> Outcome*Cost)
+    | Invoke of TMonad<Outcome*Cost>
     | Flow of ((string*BoolExpr*Activity) list)*((string*BoolExpr*string*string) list)
 
 
 
 module Eval =
-    let dist = new DMonad()
+    let dist = DMonad.IntegratorBuilder
 
     let makeSequence x =
         Seq.toList x |> Sequence   //Creates a list from the given collection.
@@ -157,7 +159,7 @@ module Eval =
                 |> JoinOutcomesAndCosts activitiesOutcomes delayedCosts
             return newEnv,flowOutcome,flowCost
         }
-    and Exec (env:Map<string,bool>) : Activity -> unit -> _ = function             ////exec
+    and Exec (env:Map<string,bool>) : Activity -> TMonad<_> = function             ////exec
     | Nothing -> dist.Return(env,Success,Zero)
     | Throw -> dist.Return(env,Fault,Zero)
     | Sequence ([]) -> dist.Return(env,Success,Zero)
@@ -246,19 +248,34 @@ module Eval =
         }
 
     let outcomeFromProbabilities : (_ -> TMonad<Outcome*Cost>) =
-        let g = new System.Random()
         fun (plist:(float*(Outcome*Cost)) list) ->
             let norm = 1.0/(List.sumBy fst plist)
-            let plist,vlist = List.unzip plist
-            let cprob = plist |> List.map ((*)norm) |>  List.scan (+) 0.0 |> List.tail
-            let cpv = List.zip cprob vlist
-            fun () ->
-                let number = g.NextDouble()
-                List.find (fun (x,y) -> x > number) cpv |> snd
+            let nlist = List.map (fun (p,v) -> norm*p,v) plist
+            //let plist,vlist = List.unzip plist
+            //let cprob = plist |> List.map ((*)norm) |>  List.scan (+) 0.0 |> List.tail
+            //let cpv = List.zip cprob vlist
+            Integration.Integrator <| fun f s a ->
+                nlist |> Seq.map (fun (scale,v)-> s scale <| f v) |> Seq.reduce a
 
-
-
-
+    let monter itcount (d:Integration.D<'T>) =
+        let mapper (x:'T) = Seq.singleton (1.0,x)
+        let multp s x = Seq.map (fun (x,(y:'T)) -> (x*s,y)) x
+        let sump = Seq.map fst >> Seq.reduce (+)
+        let collect a b =
+            Seq.append a b 
+            |> Seq.groupBy snd 
+            |> Seq.map (fun (k,v) -> sump v,k) 
+        let probs =
+            d.intfun 
+                <| mapper
+                <| multp
+                <| collect
+        let probs = Seq.sortBy fst probs |> Seq.toList
+        let plist,vlist = List.unzip probs
+        let cprob = plist |> List.scan (+) 0.0 |> List.tail
+        let cpv = List.zip cprob vlist
+        Array.init itcount <| fun i -> List.find (fun (cp,v) -> cp > ((float i) / (float itcount))) cpv |> snd
+             
     
     let activityToposort (activities:(string*BoolExpr*Activity) seq) (links:(string*BoolExpr*string*string) seq) =
         //let mutable nodemark = Map.empty

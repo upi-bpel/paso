@@ -43,6 +43,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Script.fsx" />
+    <Compile Include="Integration.fs" />
     <Compile Include="Exec.fs" />
   </ItemGroup>
   <PropertyGroup>

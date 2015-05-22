@@ -30,6 +30,7 @@ let show samplesSeq =
         let samplesSeq =
             samplesSeq
             |> Seq.map (fun (environment,outcome,(price,time)) -> price)
+            |> Seq.cache
         let rMin = Seq.min samplesSeq
         let rMax = Seq.max samplesSeq
         let range = rMax - rMin
@@ -45,12 +46,13 @@ let show samplesSeq =
         let samplesSeq =
             samplesSeq
             |> Seq.map (fun (environment,outcome,(price,time)) -> price)
+            |> Seq.cache
         let rMin = Seq.min samplesSeq
         let rMax = Seq.max samplesSeq
         samplesSeq
         |> bucketize rMin rMax
         |> Seq.sortBy fst
-        |>fun x -> Chart.Column (x,Color=System.Drawing.Color.Blue)
+        |> fun x -> Chart.Column (x,Color=System.Drawing.Color.Blue)
         |> fun x -> Chart.Combine [x;histogramPriceAvg]
         |> Chart.WithXAxis (true,"Cost ($)")
     let timeAvg =
@@ -62,6 +64,7 @@ let show samplesSeq =
             samplesSeq
             |> Seq.filter (fun (e,o,c) -> o <> lx_bpel.Stuck)
             |> Seq.map (fun (environment,outcome,(price,time)) -> time)
+            |> Seq.cache
         let rMin = Seq.min samplesSeq
         let rMax = Seq.max samplesSeq
         let range = rMax - rMin
@@ -79,6 +82,7 @@ let show samplesSeq =
             samplesSeq
             |> Seq.filter (fun (e,o,c) -> o <> lx_bpel.Stuck)
             |> Seq.map (fun (environment,outcome,(price,time)) -> time)
+            |> Seq.cache
         let rMin = Seq.min samplesSeq
         let rMax = Seq.max samplesSeq
         samplesSeq

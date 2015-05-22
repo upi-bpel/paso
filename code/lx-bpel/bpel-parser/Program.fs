@@ -51,11 +51,8 @@ let main argv =
     printfn "\n\n\n Eval = \n\n%s" <| lx_bpel.Eval.PrintActivity activity
     printfn "\n..............."
 
-    let samplesSeq =
-        Seq.init iterationCount <| fun number ->
-            lx_bpel.Eval.Exec Map.empty activity ()   ///exec is called here for the first time
-        |> Seq.cache
-
+    let activitySamplingFun =  lx_bpel.Eval.Exec Map.empty activity
+    let samplesSeq = lx_bpel.Eval.monter iterationCount activitySamplingFun |> Seq.toArray
 
     let probability e =
          Seq.averageBy (e>>function true ->1.0 |false -> 0.0) samplesSeq
