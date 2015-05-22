@@ -52,10 +52,10 @@ let main argv =
     printfn "\n..............."
 
     let activitySamplingFun =  lx_bpel.Eval.Exec Map.empty activity
-    let samplesSeq = lx_bpel.Eval.monter iterationCount activitySamplingFun |> Seq.toArray
+    let resultDist = lx_bpel.Eval.flattn activitySamplingFun
 
     let probability e =
-         Seq.averageBy (e>>function true ->1.0 |false -> 0.0) samplesSeq
+         resultDist.intfun (e>>function true ->1.0 |false -> 0.0) (*) (+)
 
     let timeLessThan5sec (env,outcome,(price,time)) =
         time < 5.0
@@ -64,7 +64,7 @@ let main argv =
 
     printfn "probabilityTimeLessThan5sec = %f" probabilityTimeLessThan5sec
 
-    Visualizer.show samplesSeq
+    Visualizer.show iterationCount resultDist
 //    let costExpectation iterations workflow =
 //        let mutable totalTime,totalPrice,totalSuccesses = 0.0,0.0,0.0
 //        for i = 1 to iterations do

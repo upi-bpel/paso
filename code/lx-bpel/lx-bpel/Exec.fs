@@ -257,6 +257,27 @@ module Eval =
             Integration.Integrator <| fun f s a ->
                 nlist |> Seq.map (fun (scale,v)-> s scale <| f v) |> Seq.reduce a
 
+    let ldist (plist:('T *float) list) : TMonad<'T> =
+        let norm = 1.0/(List.sumBy snd plist)
+        let nlist = List.map (fun (v,p) -> norm*p,v) plist
+        Integration.Integrator <| fun f s a ->
+            nlist |> Seq.map (fun (scale,v)-> s scale <| f v) |> Seq.reduce a
+    let listlr (d:Integration.D<'T>) =
+        let smap (v:'T) =
+            Map.empty.Add(v,1.0)
+        let rec smul scale m =
+            Map.map (fun v weight -> weight*scale) m
+        let ssum m1 m2 =
+            let fder acc key value =
+                match Map.tryFind key acc with
+                | None ->  Map.add key value acc
+                | Some v -> Map.add key (v  + value) acc
+            Map.fold fder m1 m2
+        d.intfun smap smul ssum
+        |> Map.toList
+    let flattn (d:Integration.D<'T>) : Integration.D<'T> =
+        listlr d
+        |> ldist
     let monter itcount (d:Integration.D<'T>) =
         let mapper (x:'T) = Seq.singleton (1.0,x)
         let multp s x = Seq.map (fun (x,(y:'T)) -> (x*s,y)) x
