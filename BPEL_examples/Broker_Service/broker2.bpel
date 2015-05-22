@@ -1,0 +1,89 @@
+<process name="brokerProcess" 
+         targetNamespace="http://acme.com/brokerprocessing" 
+         xmlns="http://schemas.xmlsoap.org/ws/2003/03/business-process/"
+         xmlns:lns="http://loans.org/wsdl/broker-process"
+         suppressJoinFailure="yes">
+
+   <variables>
+     <variable name="v1"/>
+	 <variable name="v2"/>
+	 <variable name="v3"/>
+   </variables>
+
+
+   <sequence>
+		<receive></receive>
+		<assign>
+			<copy>
+				<from>false</from>
+				<to variable="v1" />
+			</copy>
+		</assign>		
+		<assign>
+			<copy>
+				<from>false</from>
+				<to variable="v2" />
+			</copy>
+		</assign>
+		<assign>
+			<copy>
+				<from>false</from>
+				<to variable="v3" />
+			</copy>
+		</assign>
+
+		<while>
+			<condition>not ($v1 and $v2 and $v3)</condition>
+				<then>
+ 					<scope>
+						<faultHandlers>
+							<catch faultName="Fault">
+								<empty/>
+							</catch>
+						</faultHandlers>
+						<invoke name ="S"	partnerLink="S"	inputVariable="Item"></invoke>
+						<if>
+							<condition>not $v1</condition>
+							<then>
+								<assign>
+									<copy>
+										<from>true</from>
+										<to variable="v1" />
+									</copy>
+								</assign>							
+							</then>
+						<else>
+							<if>
+								<condition>not $v2</condition>
+								<then>
+									<assign>
+										<copy>
+											<from>true</from>
+											<to variable="v2" />
+										</copy>
+									</assign>	
+								</then>
+							<else>
+								<if>
+									<condition>not $v3</condition>
+									<then>
+										<assign>
+											<copy>
+												<from>true</from>
+												<to variable="v3" />
+											</copy>
+										</assign>	
+									</then>
+								<else>
+									<empty/>
+								</else>	
+								</if>
+							</else>
+							</if>
+						</else>
+						</if>	
+					</scope>	
+				</then>
+		</while>			
+	</sequence>
+</process>

@@ -1,0 +1,34 @@
+<probabilities>
+	<condition>
+		<name>true</name>
+		<value probability="1.0" >True</value>
+	</condition>
+	<condition>
+		<name>false</name>
+		<value probability="0.0" >True</value>
+	</condition>
+	<endpoint>
+	    <name>S</name>
+		<partnerLink>S</partnerLink>
+		<event outcome="success" probability="0.2">
+			<cost> 1.0$</cost>
+			<time> 1 sec</time>
+		</event>
+		<event outcome="success" probability="0.2">
+			<cost> 0.9$</cost>
+			<time> 2 sec</time>
+		</event>
+		<event outcome="success" probability="0.2">
+			<cost> 0.8$</cost>
+			<time> 3 sec</time>
+		</event>
+		<event outcome="success" probability="0.2">
+			<cost> 0.7$</cost>
+			<time> 4 sec</time>
+		</event>
+		<event outcome="fault" probability="0.2">
+			<cost> 10.0$</cost>
+			<time> 10 sec</time>
+		</event>
+	</endpoint>
+ </probabilities>
