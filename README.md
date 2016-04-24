@@ -1,4 +1,4 @@
-# PASA
+# PASO
 This repository contains the source code of an F\# implementation of the PASO probabilistic approach for predicting QoS of BPEL service orchestrations. Such approach has been presented in
 > _L. Bartoloni, A. Brogi, A. Ibrahim <br>
 > **Probabilistic Prediction of the QoS of Service Orchestrations: A Truly Compositional Approach.** <br>
