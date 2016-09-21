@@ -24,7 +24,7 @@ If you wish to reuse the sources in this repository, please properly cite the ab
 In order to use this program, you need to do following steps:
 
 * Install **Microsoft Visual Studio 2013**. 
-* Download and extract the release source code **"ieee-full.zip"**.
+* Clone the git repository `git clone https://github.com/upi-bpel/paso.git`
 * Browse to **Code** -> **lx-bpel** and open **lx-bpel.sln** with Visual studio.
 * Open the code **Program.fs** and set variable **data_path** to the directory containg WS-BPEL example and Annotation files. 
   * Set *BPEL_path* to name of WS-BPEL example
