@@ -1,3 +1,5 @@
+## A cloud-based storage service
+
 This folder contains the **WS-BPEL source files** and **QoS annotations file** (used by **PASO Analyser** to generate result) for **A cloud-based storage service example** presented in
 > _L. Bartoloni, A. Brogi, A. Ibrahim <br>
 > **Automated prediction of the QoS of service orchestrations: PASO at work.** <br>
