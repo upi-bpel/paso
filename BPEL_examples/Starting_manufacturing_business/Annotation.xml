@@ -1,0 +1,155 @@
+<probabilities>
+ 	<endpoint>
+	    <name>Location</name>
+		<partnerLink>Location</partnerLink>
+		<event outcome="success" probability="0.1">
+			<cost> 0.0$</cost>
+			<time> 2 sec</time>
+		</event>
+		<event outcome="success" probability="0.3">
+			<cost> 0.0$</cost>
+			<time> 4 sec</time>
+		</event>		
+		<event outcome="success" probability="0.4">
+			<cost> 0.0$</cost>
+			<time> 6 sec</time>
+		</event>	
+		<event outcome="success" probability="0.2">
+			<cost> 0.0$</cost>
+			<time> 10 sec</time>
+		</event>			
+	</endpoint>
+	<endpoint>
+	    <name>Loan</name>
+		<partnerLink>Loan</partnerLink>
+		<event outcome="success" probability="0.05">
+			<cost> 0.0$</cost>
+			<time> 1 sec</time>
+		</event>
+		<event outcome="success" probability="0.2">
+			<cost> 0.0$</cost>
+			<time> 2 sec</time>
+		</event>	
+		<event outcome="success" probability="0.35">
+			<cost> 0.0$</cost>
+			<time> 4 sec</time>
+		</event>	
+		<event outcome="success" probability="0.2">
+			<cost> 0.0$</cost>
+			<time> 6 sec</time>
+		</event>	
+		<event outcome="success" probability="0.1">
+			<cost> 0.0$</cost>
+			<time> 7 sec</time>
+		</event>	
+		<event outcome="success" probability="0.05">
+			<cost> 0.0$</cost>
+			<time> 10 sec</time>
+		</event>	
+		<event outcome="success" probability="0.05">
+			<cost> 0.0$</cost>
+			<time> 12 sec</time>
+		</event>			
+ 	</endpoint>
+	<endpoint>
+	    <name>Interview</name>
+		<partnerLink>Interview</partnerLink>
+		<event outcome="success" probability="0.1">
+			<cost> 0.0$</cost>
+			<time> 1 sec</time>
+		</event>
+		<event outcome="success" probability="0.3">
+			<cost> 0.0$</cost>
+			<time> 2 sec</time>
+		</event>		
+		<event outcome="success" probability="0.1">
+			<cost> 0.0$</cost>
+			<time> 4 sec</time>
+		</event>	
+		<event outcome="success" probability="0.3">
+			<cost> 0.0$</cost>
+			<time> 7 sec</time>
+		</event>	
+		<event outcome="success" probability="0.2">
+			<cost> 0.0$</cost>
+			<time> 10 sec</time>
+		</event>			
+	</endpoint>
+	<endpoint>
+	    <name>RentLocation</name>
+		<partnerLink>RentLocation</partnerLink>
+		<event outcome="success" probability="0.1">
+			<cost> 0.0$</cost>
+			<time> 6 sec</time>
+		</event>
+		<event outcome="success" probability="0.4">
+			<cost> 0.0$</cost>
+			<time> 7 sec</time>
+		</event>		
+		<event outcome="success" probability="0.1">
+			<cost> 0.0$</cost>
+			<time> 10 sec</time>
+		</event>
+		<event outcome="success" probability="0.4">
+			<cost> 0.0$</cost>
+			<time> 15 sec</time>
+		</event>		
+	</endpoint>	
+	<endpoint>
+	    <name>BuySupplies</name>
+		<partnerLink>BuySupplies</partnerLink>
+		<event outcome="success" probability="0.2">
+			<cost> 0.0$</cost>
+			<time> 1 sec</time>
+		</event>
+		<event outcome="success" probability="0.15">
+			<cost> 0.0$</cost>
+			<time> 4 sec</time>
+		</event>		
+		<event outcome="success" probability="0.35">
+			<cost> 0.0$</cost>
+			<time> 6 sec</time>
+		</event>
+		<event outcome="success" probability="0.2">
+			<cost> 0.0$</cost>
+			<time> 12 sec</time>
+		</event>
+		<event outcome="success" probability="0.1">
+			<cost> 0.0$</cost>
+			<time> 15 sec</time>
+		</event>		
+	</endpoint>		
+	<endpoint>
+	    <name>HireStaff</name>
+		<partnerLink>HireStaff</partnerLink>
+		<event outcome="success" probability="0.1">
+			<cost> 0.0$</cost>
+			<time> 2 sec</time>
+		</event>
+		<event outcome="success" probability="0.35">
+			<cost> 0.0$</cost>
+			<time> 4 sec</time>
+		</event>	
+		<event outcome="success" probability="0.1">
+			<cost> 0.0$</cost>
+			<time> 6 sec</time>
+		</event>	
+		<event outcome="success" probability="0.15">
+			<cost> 0.0$</cost>
+			<time> 7 sec</time>
+		</event>	
+		<event outcome="success" probability="0.15">
+			<cost> 0.0$</cost>
+			<time> 10 sec</time>
+		</event>	
+		<event outcome="success" probability="0.1">
+			<cost> 0.0$</cost>
+			<time> 12 sec</time>
+		</event>	
+		<event outcome="success" probability="0.05">
+			<cost> 0.0$</cost>
+			<time> 15 sec</time>
+		</event>			
+ 
+	</endpoint>		
+</probabilities>
