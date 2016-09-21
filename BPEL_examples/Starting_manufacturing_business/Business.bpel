@@ -1,0 +1,93 @@
+<process name="storageProcess" 
+         targetNamespace="http://acme.com/loanprocessing" 
+         xmlns="http://schemas.xmlsoap.org/ws/2003/03/business-process/"
+         xmlns:lns="http://loans.org/wsdl/loan-approval"
+         suppressJoinFailure="yes">
+
+   <partnerLinks>
+      <partnerLink name="Location" 
+               partnerLinkType="lns:LocationType"
+               partnerRole="Location"/>
+      <partnerLink name="Loan" 
+               partnerLinkType="lns:LoanType"
+               partnerRole="Loan"/>			   
+      <partnerLink name="Interview" 
+               partnerLinkType="lns:InterviewType"
+               partnerRole="Interview"/>
+   </partnerLinks>
+   
+ 
+ 		
+		<flow>
+			<links>
+				<link name="S1"/>
+				<link name="S2"/>
+				<link name="S3"/>
+				<link name="S4"/>
+				<link name="S5"/>
+				<link name="C1"/>
+				<link name="C2"/>
+				<link name="C3"/>
+			</links>
+			<receive></receive>
+			<sequence>
+				<sources>
+					<source linkName="S1"/>
+				</sources>
+				<invoke name="Location" partnerLink="Location"></invoke>
+			</sequence>
+			<sequence>
+				<sources>
+					<source linkName="S2"/>
+					<source linkName="S3"/>
+					<source linkName="S4"/>
+				</sources>
+				<invoke name="Loan" partnerLink="Loan"></invoke>
+			</sequence>
+			<sequence>
+				<sources>
+					<source linkName="S5"/>
+				</sources>
+				<invoke name="Interview" partnerLink="Interview"></invoke>
+			</sequence>
+			<sequence>
+				<targets>
+					<target linkName="S1" />
+					<target linkName="S2" />
+				</targets>	
+				<sources>
+					<source linkName="C1"/>
+				</sources> 
+				<invoke name="RentLocation" partnerLink="RentLocation"></invoke>
+			</sequence>			
+			<sequence>
+				<targets>
+					<target linkName="S3" />
+				</targets>	
+				<sources>
+					<source linkName="C2"/>
+				</sources> 
+				<invoke name="BuySupplies" partnerLink="BuySupplies"></invoke>
+			</sequence>	
+			<sequence>
+				<targets>
+					<target linkName="S4" />
+					<target linkName="S5" />
+				</targets>	
+				<sources>
+					<source linkName="C3"/>
+				</sources> 
+				<invoke name="HireStaff" partnerLink="HireStaff"></invoke>
+			</sequence>				
+ 			<sequence>
+				<targets>
+					<target linkName="C1" />
+					<target linkName="C2" />
+					<target linkName="C3" />
+				</targets>	
+				<reply>
+				</reply>
+			</sequence>
+		</flow>			
+ 
+</process>
